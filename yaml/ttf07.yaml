@@ -3,15 +3,45 @@ esphome:
     build_flags:
       - "-DTTF_07_C"
 
+#########################################
+#                                       #
+#   Selects                             #
+#                                       #
+#########################################
+# select:
+#   - platform: template
+#     name: "PROGRAMMSCHALTER"
+#     id: PROGRAMMSCHALTER
+#     options:
+#       - "Notbetrieb"
+#       - "Bereitschaft"
+#       - "Automatik"
+#       - "Tagbetrieb"
+#       - "Absenkbetrieb"
+#       - "Warmwasser"
+#       - "Handbetrieb"
+#       - "Unbekannt"
+#     initial_option: "Unbekannt"
+#     optimistic: true
+#     setup_priority: 100
+#     set_action:
+#       then:
+#         - lambda: |-
+#             const auto betriebsartId = Mapper::instance().getBetriebsartId(x);
+#             if(betriebsartId.has_value()) {
+#               sendData(Kessel, Property::kPROGRAMMSCHALTER, betriebsartId.value());
+            # }
+
 packages:
   COMMON: !include { file: common.yaml}
-  BASE:   !include { file: wp_base.yaml}
+#  BASE:   !include { file: wp_base.yaml}
   
-  QUELLE_IST:                     !include { file: wp_temperature.yaml, vars: { property: "QUELLE_IST" }}
+  QUELLE_IST:                     !include { file: wp_temperature.yaml, vars: { property: "QUELLE_IST" , interval: $interval_medium}}
   HKSOLLTEMP:                     !include { file: wp_temperature.yaml, vars: { property: "HKSOLLTEMP", update_interval: "never" }}
-  HKISTTEMP:                      !include { file: wp_temperature.yaml, vars: { property: "HKISTTEMP" }}
-  PUFFERISTTEMP:                  !include { file: wp_temperature.yaml, vars: { property: "PUFFERISTTEMP" }}
-  PUFFERSOLLTEMP:                 !include { file: wp_temperature.yaml, vars: { property: "PUFFERSOLLTEMP" }}
+  HKISTTEMP:                      !include { file: wp_temperature.yaml, vars: { property: "HKISTTEMP" , interval: $interval_medium}}
+  PUFFERISTTEMP:                  !include { file: wp_temperature.yaml, vars: { property: "PUFFERISTTEMP" , interval: $interval_medium}}
+  PUFFERSOLLTEMP:                 !include { file: wp_temperature.yaml, vars: { property: "PUFFERSOLLTEMP" , interval: $interval_medium}}
+  PROGRAMMSCHALTER:               !include { file: wp_binary.yaml, vars: { name: "PROGRAMMSCHALTER" , interval: $interval_medium}}
 
   DRUCK_HEIZKREIS:                !include { file: wp_generic.yaml, vars: { property: "DRUCK_HEIZKREIS", interval: "never", unit: "bar"  , icon: "mdi:water-pressure", accuracy_decimals: "1" }}
   QUELLENDRUCK:                   !include { file: wp_generic.yaml, vars: { property: "QUELLENDRUCK"   , interval: "never", unit: "bar"  , icon: "mdi:water-pressure", accuracy_decimals: "1" }}

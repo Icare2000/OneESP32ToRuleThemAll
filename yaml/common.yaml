@@ -23,8 +23,7 @@ substitutions:
   hk1_can_id: "0x301"
   hk2_can_id: "0x302"
   fek_can_id: "0x700"
-   manager_can_id: "0x6a1"
-  # manager_can_id: "0x480"
+  manager_can_id: "0x6a1"
   espclient_can_id: "0x6a2"
 
 #########################################
