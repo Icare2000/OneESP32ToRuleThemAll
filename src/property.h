@@ -168,8 +168,9 @@ struct Property : public detail::Property {
     PROPERTY(LUEFT_STUFE_HAND, 0x0612);
 #endif
 
+
 #if defined(TTF_07_C)
-    PROPERTY(PROGRAMMSCHALTER, 0x005a);
+    PROPERTY(PROGRAMMSCHALTER, 0x0112, Type::et_betriebsart);
     PROPERTY(PUFFERISTTEMP, 0x0078, Type::et_dec_val);
     PROPERTY(QUELLE_IST, 0x01d4, Type::et_dec_val);
     PROPERTY(PUFFERSOLLTEMP, 0x01d5, Type::et_dec_val);

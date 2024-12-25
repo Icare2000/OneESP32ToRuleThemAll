@@ -5,6 +5,7 @@ esphome:
 
 packages:
   COMMON: !include { file: common.yaml}
+  BASE:   !include { file: wp_base.yaml}
   
   QUELLE_IST:                     !include { file: wp_temperature.yaml, vars: { property: "QUELLE_IST" }}
   HKSOLLTEMP:                     !include { file: wp_temperature.yaml, vars: { property: "HKSOLLTEMP", update_interval: "never" }}

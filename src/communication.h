@@ -25,8 +25,9 @@ static const CanMember Manager{MANAGER_ID, "Manager"};
 static const CanMember Kessel{KESSEL_ID, "Kessel"};
 static const CanMember HK1{HK1_ID, "HK1"};
 static const CanMember HK2{HK2_ID, "HK2"};
+static const CanMember FEK{FEK_ID, "FEK"};
 
-static const std::vector<std::reference_wrapper<const CanMember>> canMembers{Kessel, HK1, HK2, Manager, ESPClient};
+static const std::vector<std::reference_wrapper<const CanMember>> canMembers{Kessel, HK1, HK2, Manager, ESPClient, FEK};
 
 using Request = std::pair<const CanMember, const Property>;
 static std::queue<Request> request_queue;

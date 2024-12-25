@@ -16,12 +16,15 @@ esphome:
       - "-DKESSEL_ID=$kessel_can_id"
       - "-DHK1_ID=$hk1_can_id"
       - "-DHK2_ID=$hk2_can_id"
+      - "-DFEK_ID=$fek_can_id"
 
 substitutions:
   kessel_can_id: "0x180"
   hk1_can_id: "0x301"
   hk2_can_id: "0x302"
-  manager_can_id: "0x6a1"
+  fek_can_id: "0x700"
+   manager_can_id: "0x6a1"
+  # manager_can_id: "0x480"
   espclient_can_id: "0x6a2"
 
 #########################################
@@ -59,21 +62,21 @@ interval:
             request_queue.pop();
             requestData(request_element.first, request_element.second);
           }
-  - interval: $interval_medium
-    then:
-      - lambda: |-
-          // Send current RAUMISTTEMP
-          const auto room_temp = id(gRAUMISTTEMP);
-          if(room_temp > 0.0f) {
-            ESP_LOGI("SET", "Sending cached room temperature %f to heatpump", room_temp);
-            sendData(HK1, Property::kRAUMISTTEMP, static_cast<std::uint16_t>(room_temp * 10.0f));
-          }
-          // Send current FEUCHTE
-          const auto humidity = id(gFEUCHTE);
-          if(humidity > 0.0) {
-            ESP_LOGI("SET", "Sending cached humidity %f to heatpump", humidity);
-            sendData(HK1, Property::kFEUCHTE, static_cast<std::uint16_t>(humidity * 10.0f));
-          }
+  # - interval: $interval_medium
+  #   then:
+  #     - lambda: |-
+  #         // Send current RAUMISTTEMP
+  #         const auto room_temp = id(gRAUMISTTEMP);
+  #         if(room_temp > 0.0f) {
+  #           ESP_LOGI("SET", "Sending cached room temperature %f to heatpump", room_temp);
+  #           sendData(HK1, Property::kRAUMISTTEMP, static_cast<std::uint16_t>(room_temp * 10.0f));
+  #         }
+  #         // Send current FEUCHTE
+  #         const auto humidity = id(gFEUCHTE);
+  #         if(humidity > 0.0) {
+  #           ESP_LOGI("SET", "Sending cached humidity %f to heatpump", humidity);
+  #           sendData(HK1, Property::kFEUCHTE, static_cast<std::uint16_t>(humidity * 10.0f));
+  #         }
 
 #########################################
 #                                       #
@@ -117,23 +120,23 @@ packages:
 #                                       #
 #########################################
 sensor:
-  - platform: homeassistant
-    name: "Temperature Sensor From Home Assistant"
-    entity_id: $entity_room_temperature
-    on_value:
-      then:
-        - lambda: |-
-            ESP_LOGI("SET", "Updating room temperature to %f", x);
-            id(gRAUMISTTEMP) = x;
+  # - platform: homeassistant
+  #   name: "Temperature Sensor From Home Assistant"
+  #   entity_id: $entity_room_temperature
+  #   on_value:
+  #     then:
+  #       - lambda: |-
+  #           ESP_LOGI("SET", "Updating room temperature to %f", x);
+  #           id(gRAUMISTTEMP) = x;
 
-  - platform: homeassistant
-    name: "Humidity Sensor From Home Assistant"
-    entity_id: $entity_humidity
-    on_value:
-      then:
-        - lambda: |-
-            ESP_LOGI("SET", "Updating humidity to %f", x);
-            id(gFEUCHTE) = x;
+  # - platform: homeassistant
+  #   name: "Humidity Sensor From Home Assistant"
+  #   entity_id: $entity_humidity
+  #   on_value:
+  #     then:
+  #       - lambda: |-
+  #           ESP_LOGI("SET", "Updating humidity to %f", x);
+  #           id(gFEUCHTE) = x;
 
 #########################################
 #                                       #
@@ -174,12 +177,12 @@ canbus:
       can_id_mask: 0
       then:
         - lambda: |-
-            ESP_LOGD("CAN", "Can message received with CANId 0x%04lx", can_id);
+            ESP_LOGD("CAN", "StartCan:Can message received with CANId 0x%04lx", can_id);
             const auto [property, value] = processCanMessage(x);
             const auto canMember = getCanMemberByCanId(can_id);
             if(canMember) {
               auto callback = CallbackHandler::instance().getCallback(std::make_pair(canMember->get(),property));
               callback(value);
             } else {
-              ESP_LOGD("CAN", "No CANMember with CANId 0x%04lx available.", can_id);
+              ESP_LOGD("CAN", "EndCan: No CANMember with CANId 0x%04lx available.", can_id);
             }
