@@ -9,6 +9,7 @@ esphome:
     - OneESP32ToRuleThemAll/src/simple_variant.h
     - OneESP32ToRuleThemAll/src/type.h
     - OneESP32ToRuleThemAll/src/type.cpp
+    - OneESP32ToRuleThemAll/src/util.h
   platformio_options:
     build_flags:
       - "-DESPCLIENT_ID=$espclient_can_id"
@@ -33,15 +34,44 @@ globals:
   - id: gRAUMISTTEMP
     type: float
     initial_value: "0.0"
-  - id: gFEUCHTE
+  - id: gRAUMFEUCHTE
     type: float
     initial_value: "0.0"
   - id: gCOP_WW_TAG
     type: float
-    initial_value: "0.0"
+    initial_value: "1.0"
   - id: gCOP_HEIZ_TAG
     type: float
-    initial_value: "0.0"
+    initial_value: "1.0"
+
+#########################################
+#                                       #
+#   Time Synchronization                #
+#                                       #
+#########################################
+time:
+  - platform: sntp
+    id: sntp_time
+    on_time:
+      - seconds: 0
+        minutes: 0
+        hours: 3 # sync at 3 am should be ok even with switch from/to daylight saving time
+        then:
+          - lambda: |-
+              syncTime();
+
+#########################################
+#                                       #
+#   Buttons                             #
+#                                       #
+#########################################
+button:
+  - platform: template
+    name: Synchronize Time
+    on_press:
+      then:
+        - lambda: |-
+            syncTime();
 
 #########################################
 #                                       #
@@ -53,11 +83,15 @@ interval:
     then:
       - lambda: |-
           // Request sensor value one after another.
-          if(!request_queue.empty()) {
-            constexpr auto use_extended_id{false};
-            const auto request_element = request_queue.front();
-            request_queue.pop();
-            requestData(request_element.first, request_element.second);
+          if(!conditionalRequests.empty()) {
+            // find the next request of which the condition evaluates to true
+            auto it = std::find_if(conditionalRequests.begin(),conditionalRequests.end(),[](const auto& element){
+              return element._condition();
+            });
+            if(it != conditionalRequests.end()) {
+                requestData(it->_request.first, it->_request.second);
+                conditionalRequests.erase(it);
+            }
           }
   - interval: $interval_medium
     then:
@@ -68,11 +102,11 @@ interval:
             ESP_LOGI("SET", "Sending cached room temperature %f to heatpump", room_temp);
             sendData(HK1, Property::kRAUMISTTEMP, static_cast<std::uint16_t>(room_temp * 10.0f));
           }
-          // Send current FEUCHTE
-          const auto humidity = id(gFEUCHTE);
+          // Send current RAUMFEUCHTE
+          const auto humidity = id(gRAUMFEUCHTE);
           if(humidity > 0.0) {
             ESP_LOGI("SET", "Sending cached humidity %f to heatpump", humidity);
-            sendData(HK1, Property::kFEUCHTE, static_cast<std::uint16_t>(humidity * 10.0f));
+            sendData(HK1, Property::kRAUMFEUCHTE, static_cast<std::uint16_t>(humidity * 10.0f));
           }
 
 #########################################
@@ -82,30 +116,26 @@ interval:
 #########################################
 packages:
   VERDICHTER_STARTS:               !include { file: wp_generic_combined.yaml, vars: { sensor_name: "VERDICHTER_STARTS"                  , scaled_property: "VERDICHTER_STARTS_K"          , property: "VERDICHTER_STARTS"            , unit: ""   , accuracy_decimals: "0", scaler: "1000", icon: "mdi:counter" }}
-  WAERMEERTRAG_2WE_WW_SUMME_MWH:   !include { file: wp_generic_combined.yaml, vars: { sensor_name: "WAERMEERTRAG_2WE_WW_SUMME_MWH"      , scaled_property: "WAERMEERTRAG_2WE_WW_SUM_KWH"  , property: "WAERMEERTRAG_2WE_WW_SUM_MWH"  , unit: "MWh", accuracy_decimals: "3", icon: "mdi:fire"  }}
-  WAERMEERTRAG_2WE_HEIZ_SUMME_MWH: !include { file: wp_generic_combined.yaml, vars: { sensor_name: "WAERMEERTRAG_2WE_HEIZ_SUMME_MWH"    , scaled_property: "WAERMEERTRAG_2WE_HEIZ_SUM_KWH", property: "WAERMEERTRAG_2WE_HEIZ_SUM_MWH", unit: "MWh", accuracy_decimals: "3", icon: "mdi:fire"  }}
   WAERMEERTRAG_WW_SUMME_MWH:       !include { file: wp_generic_combined.yaml, vars: { sensor_name: "WAERMEERTRAG_WW_SUMME_MWH"          , scaled_property: "WAERMEERTRAG_WW_SUM_KWH"      , property: "WAERMEERTRAG_WW_SUM_MWH"      , unit: "MWh", accuracy_decimals: "3", icon: "mdi:fire"  }}
   WAERMEERTRAG_HEIZ_SUMME_MWH:     !include { file: wp_generic_combined.yaml, vars: { sensor_name: "WAERMEERTRAG_HEIZ_SUMME_MWH"        , scaled_property: "WAERMEERTRAG_HEIZ_SUM_KWH"    , property: "WAERMEERTRAG_HEIZ_SUM_MWH"    , unit: "MWh", accuracy_decimals: "3", icon: "mdi:fire"  }}
 
   SPEICHERSOLLTEMP:               !include { file: wp_temperature.yaml, vars: { property: "SPEICHERSOLLTEMP"          }}
-  SPEICHERISTTEMP:                !include { file: wp_temperature.yaml, vars: { property: "SPEICHERISTTEMP"          , interval: $interval_medium }}
+  SPEICHERISTTEMP:                !include { file: wp_temperature.yaml, vars: { property: "SPEICHERISTTEMP"          , update_interval: $interval_medium }}
   AUSSENTEMP:                     !include { file: wp_temperature.yaml, vars: { property: "AUSSENTEMP"       }}
-  VERDAMPFERTEMP:                 !include { file: wp_temperature.yaml, vars: { property: "VERDAMPFERTEMP"   }}
-  RUECKLAUFISTTEMP:               !include { file: wp_temperature.yaml, vars: { property: "RUECKLAUFISTTEMP"         , interval: $interval_medium }}
-  VORLAUFISTTEMP:                 !include { file: wp_temperature.yaml, vars: { property: "VORLAUFISTTEMP"           , interval: $interval_medium, target: "HK1" }}
+  RUECKLAUFISTTEMP:               !include { file: wp_temperature.yaml, vars: { property: "RUECKLAUFISTTEMP"         , update_interval: $interval_medium }}
+  VORLAUFISTTEMP:                 !include { file: wp_temperature.yaml, vars: { property: "VORLAUFISTTEMP"           , update_interval: $interval_medium, target: "HK1" }}
   RAUMISTTEMP:                    !include { file: wp_temperature.yaml, vars: { property: "RAUMISTTEMP"              , target: "HK1" }}
   VERSTELLTE_RAUMSOLLTEMP:        !include { file: wp_temperature.yaml, vars: { property: "VERSTELLTE_RAUMSOLLTEMP"  , target: "HK1" }}
   VORLAUFSOLLTEMP:                !include { file: wp_temperature.yaml, vars: { property: "VORLAUFSOLLTEMP"          , target: "HK1" }}
 
-  FEHLERMELDUNG:                  !include { file: wp_generic.yaml, vars: { property: "FEHLERMELDUNG"            , icon: "mdi:alert-circle" }}
-  FEUCHTE:                        !include { file: wp_generic.yaml, vars: { property: "FEUCHTE"                  , interval: $interval_very_slow, unit: "%", icon: "mdi:water-percent", target: "HK1", accuracy_decimals: "1" }}
+  FEHLERMELDUNG:                  !include { file: wp_generic.yaml, vars: { property: "FEHLERMELDUNG"      , icon: "mdi:alert-circle" }}
+  RAUMFEUCHTE:                    !include { file: wp_generic.yaml, vars: { property: "RAUMFEUCHTE"        , interval: $interval_very_slow, unit: "%", icon: "mdi:water-percent", target: "HK1", accuracy_decimals: "1" }}
+  STEIGUNG_HK1:                   !include { file: wp_generic.yaml, vars: { property: "STEIGUNG_HK1"       , icon: "mdi:valve", target: "HK1", accuracy_decimals: "2" }}
 
-  RAUMEINFLUSS:                   !include { file: wp_number.yaml, vars: { property: "RAUMEINFLUSS"               , target: "HK1" }}
+  RAUMEINFLUSS:                   !include { file: wp_number.yaml, vars: { property: "RAUMEINFLUSS", target: "HK1" }}
 
   EL_AUFNAHMELEISTUNG_WW_SUMME_KWH:    !include { file: wp_daily_energy_combined.yaml, vars: { sensor_name: "EL_AUFNAHMELEISTUNG_WW_SUMME_KWH"   , property_wh: "EL_AUFNAHMELEISTUNG_WW_TAG_WH"  , property_kwh: "EL_AUFNAHMELEISTUNG_WW_TAG_KWH"   }}
   EL_AUFNAHMELEISTUNG_HEIZ_SUMME_KWH:  !include { file: wp_daily_energy_combined.yaml, vars: { sensor_name: "EL_AUFNAHMELEISTUNG_HEIZ_SUMME_KWH" , property_wh: "EL_AUFNAHMELEISTUNG_HEIZ_TAG_WH", property_kwh: "EL_AUFNAHMELEISTUNG_HEIZ_TAG_KWH" }}
-  WAERMEERTRAG_2WE_WW_TAG_SUMME_KWH:   !include { file: wp_daily_energy_combined.yaml, vars: { sensor_name: "WAERMEERTRAG_2WE_WW_TAG_SUMME_KWH"  , property_wh: "WAERMEERTRAG_2WE_WW_TAG_WH"     , property_kwh: "WAERMEERTRAG_2WE_WW_TAG_KWH"      }}
-  WAERMEERTRAG_2WE_HEIZ_TAG_SUMME_KWH: !include { file: wp_daily_energy_combined.yaml, vars: { sensor_name: "WAERMEERTRAG_2WE_HEIZ_TAG_SUMME_KWH", property_wh: "WAERMEERTRAG_2WE_HEIZ_TAG_WH"   , property_kwh: "WAERMEERTRAG_2WE_HEIZ_TAG_KWH"    }}
   WAERMEERTRAG_WW_TAG_SUMME_KWH:       !include { file: wp_daily_energy_combined.yaml, vars: { sensor_name: "WAERMEERTRAG_WW_TAG_SUMME_KWH"      , property_wh: "WAERMEERTRAG_WW_TAG_WH"         , property_kwh: "WAERMEERTRAG_WW_TAG_KWH"          }}
   WAERMEERTRAG_HEIZ_TAG_SUMME_KWH:     !include { file: wp_daily_energy_combined.yaml, vars: { sensor_name: "WAERMEERTRAG_HEIZ_TAG_SUMME_KWH"    , property_wh: "WAERMEERTRAG_HEIZ_TAG_WH"       , property_kwh: "WAERMEERTRAG_HEIZ_TAG_KWH"        }}
 
@@ -133,7 +163,7 @@ sensor:
       then:
         - lambda: |-
             ESP_LOGI("SET", "Updating humidity to %f", x);
-            id(gFEUCHTE) = x;
+            id(gRAUMFEUCHTE) = x;
 
 #########################################
 #                                       #
@@ -144,6 +174,8 @@ sensor:
     name: "COP WW TAG"
     update_interval: $interval_very_slow
     state_class: "measurement"
+    filters:
+      - median
     lambda: |-
       if (id(WAERMEERTRAG_WW_TAG_SUMME_KWH).state && id(EL_AUFNAHMELEISTUNG_WW_SUMME_KWH).state && id(EL_AUFNAHMELEISTUNG_WW_SUMME_KWH).state != 0.0f) {
         id(gCOP_WW_TAG) = id(WAERMEERTRAG_WW_TAG_SUMME_KWH).state / id(EL_AUFNAHMELEISTUNG_WW_SUMME_KWH).state;
@@ -153,6 +185,8 @@ sensor:
     name: "COP HEIZ TAG"
     update_interval: $interval_very_slow
     state_class: "measurement"
+    filters:
+      - median
     lambda: |-
       if (id(WAERMEERTRAG_HEIZ_TAG_SUMME_KWH).state && id(EL_AUFNAHMELEISTUNG_HEIZ_SUMME_KWH).state && id(EL_AUFNAHMELEISTUNG_HEIZ_SUMME_KWH).state != 0.0f) {
         id(gCOP_HEIZ_TAG) = id(WAERMEERTRAG_HEIZ_TAG_SUMME_KWH).state / id(EL_AUFNAHMELEISTUNG_HEIZ_SUMME_KWH).state;

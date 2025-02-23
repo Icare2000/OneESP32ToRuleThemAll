@@ -1,10 +1,12 @@
 #if !defined(COMMUNICATION_H)
 #define COMMUNICATION_H
+#include <chrono>
 #include <cstdint>
-#include <queue>
+#include <list>
 #include <string>
 #include <vector>
 
+#include "esphome.h"
 #include "mapper.h"
 #include "property.h"
 #include "type.h"
@@ -25,11 +27,26 @@ static const CanMember Manager{MANAGER_ID, "Manager"};
 static const CanMember Kessel{KESSEL_ID, "Kessel"};
 static const CanMember HK1{HK1_ID, "HK1"};
 static const CanMember HK2{HK2_ID, "HK2"};
+static const CanMember FET{0x402, "FET"};    // TODO: make configurable and double check
+static const CanMember MFG{0x700, "MFG"};    // TODO: make configurable and double check
+static const CanMember WPM2{0x480, "WPM2"};  // TODO: make configurable and double check
 
-static const std::vector<std::reference_wrapper<const CanMember>> canMembers{Kessel, HK1, HK2, Manager, ESPClient};
+static const std::vector<std::reference_wrapper<const CanMember>> canMembers{Kessel,    HK1, HK2, Manager,
+                                                                             ESPClient, FET, MFG, WPM2};
 
 using Request = std::pair<const CanMember, const Property>;
-static std::queue<Request> request_queue;
+struct ConditionalRequest {
+    ConditionalRequest(Request request) : _request(request){};
+    ConditionalRequest(Request request, std::function<bool()> condition)
+        : _request(request), _condition(std::move(condition)){};
+
+    Request _request;
+    std::function<bool()> _condition = []() {
+        return true;
+    };
+};
+
+static std::list<ConditionalRequest> conditionalRequests;
 
 /**
  * @brief Tries to find the CANMember with the given CANId.
@@ -51,9 +68,8 @@ std::optional<std::reference_wrapper<const CanMember>> getCanMemberByCanId(CANId
  */
 bool isRequest(const std::vector<std::uint8_t>& msg) {
     const auto id{msg[1U] | (msg[0U] << 8U)};
-    const auto it = std::find_if(canMembers.cbegin(), canMembers.cend(), [id](const auto& member) {
-        return member.get().getReadId() == id || member.get().getWriteId() == id;
-    });
+    const auto it = std::find_if(canMembers.cbegin(), canMembers.cend(),
+                                 [id](const auto& member) { return member.get().getReadId() == id; });
     return it != canMembers.cend();
 }
 
@@ -70,11 +86,36 @@ bool isResponse(const std::vector<std::uint8_t>& msg) {
 /**
  * @brief Puts a request towards the \c member for the given \c property in the request queue.
  *        This will effectively prevent that requests are all sent at the same time, which might
- *        cause issues. The time inbetween actual requests is defined in yaml.
+ *        cause issues. The list of requests is processed one element at a time and according to the interval set in the
+ *        common.yaml
  */
 void queueRequest(const CanMember& member, const Property& property) {
     ESP_LOGI("QUEUE", "Requesting data from %s for %s", member.name.c_str(), std::string(property.name).c_str());
-    request_queue.push(std::make_pair(member, property));
+    conditionalRequests.emplace_back(std::make_pair(member, property));
+}
+
+/**
+ * @brief Puts a conditional request towards the \c member for the given \c property. The request will be placed once
+ *        the \c condition evaluates to true and there are no preceding requests pending. The list of requests is
+ *        processed one element at a time and according to the interval set in the common.yaml
+ */
+void queueConditionalRequest(const CanMember& member, const Property& property, std::function<bool()> condition) {
+    ESP_LOGI("QUEUE", "Adding conditional request for data from %s for %s", member.name.c_str(),
+             std::string(property.name).c_str());
+    conditionalRequests.emplace_back(std::make_pair(member, property), std::move(condition));
+}
+
+/**
+ * @brief Puts a conditional request towards the \c member for the given \c property. The request will be placed once
+ *        the given \c time in seconds has passed and there are no preceding requests pending. The list of requests is
+ *        processed one element at a time and according to the interval set in the common.yaml
+ */
+void scheduleRequest(const CanMember& member, const Property& property, std::chrono::seconds seconds) {
+    ESP_LOGI("QUEUE", "Scheduling request for data from %s for %s in %lld seconds", member.name.c_str(),
+             std::string(property.name).c_str(), seconds.count());
+    conditionalRequests.emplace_back(
+        std::make_pair(member, property),
+        [t = std::chrono::steady_clock::now() + seconds]() { return t < std::chrono::steady_clock::now(); });
 }
 
 /**
@@ -104,13 +145,16 @@ std::pair<Property, SimpleVariant> processCanMessage(const std::vector<std::uint
 
     const auto value{static_cast<std::uint16_t>((byte1 << 8U) | byte2)};
     const auto canId{static_cast<std::uint16_t>(((msg[0U] & 0xfc) << 3) | (msg[1U] & 0x3f))};
-    ESP_LOGI("Communication",
-             "Message received: Read/Write ID 0x%02x 0x%02x(0x%04x) for property %s (0x%04x) with raw value: %d",
-             msg[0U], msg[1U], canId, std::string(property.name).c_str(), property.id, value);
-    if (!isResponse(msg)) {
-        ESP_LOGD("Communication", "Message is not a response. Dropping it!");
+    if (isRequest(msg)) {
+        ESP_LOGD("Communication", "Message is a request. Dropping it!");
+        ESP_LOGD("Communication",
+                 "Message received: Read/Write ID 0x%02x 0x%02x(0x%03x) for property %s (0x%04x) with raw value: %d",
+                 msg[0U], msg[1U], canId, std::string(property.name).c_str(), property.id, value);
         return {Property::kINDEX_NOT_FOUND, value};
     }
+    ESP_LOGI("Communication",
+             "Message received: Read/Write ID 0x%02x 0x%02x(0x%03x) for property %s (0x%04x) with raw value: %d",
+             msg[0U], msg[1U], canId, std::string(property.name).c_str(), property.id, value);
     return {property, GetValueByType(value, property.type)};
 }
 
@@ -146,6 +190,8 @@ void sendData(const CanMember& member, const Property property, const std::uint1
     data.insert(data.end(), {IdByte1, IdByte2, 0xfa, IndexByte1, IndexByte2, ValueByte1, ValueByte2});
 
     id(wp_can).send_data(ESPClient.canId, use_extended_id, data);
+    // Request the value again to make sure the sensor is updated, with a delay of 10s to allow the heatpump to react.
+    scheduleRequest(member, property, std::chrono::seconds(10));
 }
 
 #endif
