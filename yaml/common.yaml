@@ -16,12 +16,12 @@ esphome:
       - "-DMANAGER_ID=$manager_can_id"
       - "-DKESSEL_ID=$kessel_can_id"
       - "-DHK1_ID=$hk1_can_id"
-      - "-DHK2_ID=$hk2_can_id"
+#      - "-DHK2_ID=$hk2_can_id"
 
 substitutions:
   kessel_can_id: "0x180"
   hk1_can_id: "0x301"
-  hk2_can_id: "0x302"
+  #hk2_can_id: "0x302"
   manager_can_id: "0x6a1"
   espclient_can_id: "0x6a2"
 
@@ -93,21 +93,21 @@ interval:
                 conditionalRequests.erase(it);
             }
           }
-  - interval: $interval_medium
-    then:
-      - lambda: |-
-          // Send current RAUMISTTEMP
-          const auto room_temp = id(gRAUMISTTEMP);
-          if(room_temp > 0.0f) {
-            ESP_LOGI("SET", "Sending cached room temperature %f to heatpump", room_temp);
-            sendData(HK1, Property::kRAUMISTTEMP, static_cast<std::uint16_t>(room_temp * 10.0f));
-          }
-          // Send current RAUMFEUCHTE
-          const auto humidity = id(gRAUMFEUCHTE);
-          if(humidity > 0.0) {
-            ESP_LOGI("SET", "Sending cached humidity %f to heatpump", humidity);
-            sendData(HK1, Property::kRAUMFEUCHTE, static_cast<std::uint16_t>(humidity * 10.0f));
-          }
+  # - interval: $interval_medium
+  #   then:
+  #     - lambda: |-
+  #         // Send current RAUMISTTEMP
+  #         const auto room_temp = id(gRAUMISTTEMP);
+  #         if(room_temp > 0.0f) {
+  #           ESP_LOGI("SET", "Sending cached room temperature %f to heatpump", room_temp);
+  #           sendData(HK1, Property::kRAUMISTTEMP, static_cast<std::uint16_t>(room_temp * 10.0f));
+  #         }
+  #         // Send current RAUMFEUCHTE
+  #         const auto humidity = id(gRAUMFEUCHTE);
+  #         if(humidity > 0.0) {
+  #           ESP_LOGI("SET", "Sending cached humidity %f to heatpump", humidity);
+  #           sendData(HK1, Property::kRAUMFEUCHTE, static_cast<std::uint16_t>(humidity * 10.0f));
+  #         }
 
 #########################################
 #                                       #
@@ -147,23 +147,23 @@ packages:
 #                                       #
 #########################################
 sensor:
-  - platform: homeassistant
-    name: "Temperature Sensor From Home Assistant"
-    entity_id: $entity_room_temperature
-    on_value:
-      then:
-        - lambda: |-
-            ESP_LOGI("SET", "Updating room temperature to %f", x);
-            id(gRAUMISTTEMP) = x;
+#   - platform: homeassistant
+#     name: "Temperature Sensor From Home Assistant"
+#     entity_id: $entity_room_temperature
+#     on_value:
+#       then:
+#         - lambda: |-
+#             ESP_LOGI("SET", "Updating room temperature to %f", x);
+#             id(gRAUMISTTEMP) = x;
 
-  - platform: homeassistant
-    name: "Humidity Sensor From Home Assistant"
-    entity_id: $entity_humidity
-    on_value:
-      then:
-        - lambda: |-
-            ESP_LOGI("SET", "Updating humidity to %f", x);
-            id(gRAUMFEUCHTE) = x;
+#   - platform: homeassistant
+#     name: "Humidity Sensor From Home Assistant"
+#     entity_id: $entity_humidity
+#     on_value:
+#       then:
+#         - lambda: |-
+#             ESP_LOGI("SET", "Updating humidity to %f", x);
+#             id(gRAUMFEUCHTE) = x;
 
 #########################################
 #                                       #
@@ -171,7 +171,7 @@ sensor:
 #                                       #
 #########################################
   - platform: template
-    name: "COP WW TAG"
+    name: "COP ECS JOURNALIER"
     update_interval: $interval_very_slow
     state_class: "measurement"
     filters:
@@ -182,7 +182,7 @@ sensor:
       }
       return id(gCOP_WW_TAG);
   - platform: template
-    name: "COP HEIZ TAG"
+    name: "COP CHAUFFAGE JOURNALIER"
     update_interval: $interval_very_slow
     state_class: "measurement"
     filters:
@@ -203,6 +203,7 @@ canbus:
     can_id: $espclient_can_id
     use_extended_id: false
     bit_rate: 20kbps
+    mode: LISTENONLY
     on_frame:
     - can_id: 0
       can_id_mask: 0
