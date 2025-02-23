@@ -24,6 +24,7 @@ esphome:
       - lambda: |-
           CallbackHandler::instance().addCallback(std::make_pair(WPM2,Property::kPROGRAMMSCHALTER),[](const SimpleVariant& value){
             const auto stringValue{value.get<std::string>()};
+            ESP_LOGI("PROGRAMMSCHALTER", "mapped value %s", stringValue.c_str());
             const auto index = id(PROGRAMMSCHALTER).index_of(stringValue);
             if(index.has_value()) {
               id(PROGRAMMSCHALTER).publish_state(stringValue);
@@ -162,7 +163,7 @@ select:
         - lambda: |-
             const auto betriebsartId = Mapper::instance().getBetriebsartId(x);
             if(betriebsartId.has_value()) {
-              sendData(WPM2, Property::kPROGRAMMSCHALTER, betriebsartId.value());
+              sendData(WPM2, Property::kPROGRAMMSCHALTER, (betriebsartId.value() >> 8U) & 0xFF);
             }
 
 #########################################
@@ -202,7 +203,7 @@ packages:
   RAUMISTTEMP:                !include { file: wp_temperature.yaml, vars: { property: "RAUMISTTEMP"       , target: "FET"  }}
   RAUMSOLLTEMP:               !include { file: wp_temperature.yaml, vars: { property: "RAUMSOLLTEMP"      , target: "FET"  }}
   PUFFERISTTEMPERATUR:        !include { file: wp_temperature.yaml, vars: { property: "PUFFERISTTEMPERATUR" }}
-  ANLAGENFROST:               !include { file: wp_temperature.yaml, vars: { property: "ANLAGENFROST"       , target: "MFG"  }}
+  FROSTSCHUTZ:                !include { file: wp_temperature.yaml, vars: { property: "FROSTSCHUTZ"       , target: "MFG"  }}
   VORLAUFTEMP_QUELLE:         !include { file: wp_temperature.yaml, vars: { property: "VORLAUFTEMP_QUELLE" , target: "Manager"  }}
   RUECKLAUFTEMP_QUELLE:       !include { file: wp_temperature.yaml, vars: { property: "RUECKLAUFTEMP_QUELLE" , target: "Manager"  }}
   VORLAUFISTTEMP:             !include { file: wp_temperature.yaml, vars: { property: "VORLAUFISTTEMP"     , update_interval: $interval_medium, target: "MFG"  }}
@@ -211,8 +212,8 @@ packages:
   RUECKLAUFISTTEMP:           !include { file: wp_temperature.yaml, vars: { property: "RUECKLAUFISTTEMP"   , update_interval: $interval_medium , target: "MFG" }}
 
   RAUMFEUCHTE:                !include { file: wp_generic.yaml,     vars: { property: "RAUMFEUCHTE" , interval: $interval_very_slow, unit: "%", icon: "mdi:water-percent", accuracy_decimals: "1", target: "FET"  }}
-  HEIZEN_EFFIZIENZ_TAG:       !include { file: wp_generic.yaml,     vars: { property: "HEIZEN_EFFIZIENZ_TAG"  , target: "WPM2"  }}
-  HEIZEN_EFFIZIENZ_JAHR:      !include { file: wp_generic.yaml,     vars: { property: "HEIZEN_EFFIZIENZ_JAHR" , target: "WPM2"  }}
+  HEIZEN_EFFIZIENZ_TAG:       !include { file: wp_generic.yaml,     vars: { property: "HEIZEN_EFFIZIENZ_TAG"  , target: "WPM2", accuracy_decimals: "2" }}
+  HEIZEN_EFFIZIENZ_JAHR:      !include { file: wp_generic.yaml,     vars: { property: "HEIZEN_EFFIZIENZ_JAHR" , target: "WPM2", accuracy_decimals: "2" }}
   QUELLENDRUCK:               !include { file: wp_generic.yaml,     vars: { property: "QUELLENDRUCK"          , interval: never, unit: "bar"  , icon: "mdi:water-pressure" , accuracy_decimals: "1", target: "Manager"  }}
   LEISTUNG_QUELLENPUMPE:      !include { file: wp_generic.yaml,     vars: { property: "LEISTUNG_QUELLENPUMPE" , interval: never, unit: "%"    , icon: "mdi:water-percent", accuracy_decimals: "1", target: "Manager"  }}
   VOLUMENSTROM:               !include { file: wp_generic.yaml,     vars: { property: "VOLUMENSTROM"          , interval: never, unit: "l/min", icon: "mdi:flow"           , accuracy_decimals: "1", target: "Manager"  }}
@@ -231,31 +232,6 @@ packages:
   WAERMEERTRAG_HEIZ_TAG_SUMME_KWH:     !include { file: wp_daily_energy_combined.yaml, vars: { sensor_name: "WAERMEERTRAG_HEIZ_TAG_SUMME_KWH"    , property_wh: "WAERMEERTRAG_HEIZ_TAG_WH"        , property_kwh: "WAERMEERTRAG_HEIZ_TAG_KWH"        , target: "Manager" }}
 
   HEATPUMP_DATETIME: !include { file: wp_datetime.yaml }
-
-#########################################
-#                                       #
-#   Template Sensors                    #
-#                                       #
-#########################################
-sensor:
-  - platform: template
-    name: "COP WW TAG"
-    update_interval: $interval_very_slow
-    state_class: "measurement"
-    lambda: |-
-      if (id(WAERMEERTRAG_WW_TAG_SUMME_KWH).state && id(EL_AUFNAHMELEISTUNG_WW_SUMME_KWH).state && id(EL_AUFNAHMELEISTUNG_WW_SUMME_KWH).state != 0.0f) {
-        id(gCOP_WW_TAG) = id(WAERMEERTRAG_WW_TAG_SUMME_KWH).state / id(EL_AUFNAHMELEISTUNG_WW_SUMME_KWH).state;
-      }
-      return id(gCOP_WW_TAG);
-  - platform: template
-    name: "COP HEIZ TAG"
-    update_interval: $interval_very_slow
-    state_class: "measurement"
-    lambda: |-
-      if (id(WAERMEERTRAG_HEIZ_TAG_SUMME_KWH).state && id(EL_AUFNAHMELEISTUNG_HEIZ_SUMME_KWH).state && id(EL_AUFNAHMELEISTUNG_HEIZ_SUMME_KWH).state != 0.0f) {
-        id(gCOP_HEIZ_TAG) = id(WAERMEERTRAG_HEIZ_TAG_SUMME_KWH).state / id(EL_AUFNAHMELEISTUNG_HEIZ_SUMME_KWH).state;
-      }
-      return id(gCOP_HEIZ_TAG);
 
 #########################################
 #                                       #
