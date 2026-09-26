@@ -1,0 +1,59 @@
+defaults:
+  target: "Kessel"
+  icon: "mdi:toggle-switch-variant"
+  exposed: "true"
+
+switch:
+  - platform: template
+    name: ${property}
+    id: ${property}
+    icon: ${icon}
+    restore_mode: DISABLED
+    turn_on_action:
+      - lambda: |-
+          queueTransmission(CanNode::${target}, Property::k${property}, static_cast<std::uint16_t>(true));
+    turn_off_action:
+      - lambda: |-
+          queueTransmission(CanNode::${target}, Property::k${property}, static_cast<std::uint16_t>(false));
+    on_state:
+      then:
+        - if:
+            condition:
+              lambda: |-
+                #if defined(ANALYTICS)
+                  return getWhitelistedEntities().contains(id(${property}));
+                #else
+                  return false;
+                #endif
+            then:
+              - script.execute:
+                  id: mqtt_push_event
+                  suffix: ${property}
+                  payload: !lambda 'return x ? "On" : "Off";'
+
+esphome:
+  on_boot:
+    - priority: -50
+      then:
+        - lambda: |-
+            static_assert(Property::k${property}.type == Type::et_bool, "Only properties of type bool are supported by wp_switch.");
+            ESP_LOGE("DEBUG_LAMBDA", "Lambda executing for: %s", "${property}");
+            CallbackHandler::instance().addCallbacks({{CanNode::${target},Property::k${property}},
+                                                      {CanNode::Heizmodul,Property::k${property}}}, [](const SimpleVariant& value){
+                const auto newValue{value.get<bool>()};
+                auto property{id(${property})};
+                if(property->state != newValue) {
+                  property->publish_state(newValue);
+                }
+            });
+
+            #if defined(ANALYTICS)
+              if(${exposed}) {
+                getWhitelistedEntities().insert(id(${property}));
+              }
+            #endif
+    - priority: -100.0
+      then:
+        - delay: 250ms
+        - lambda: |-
+            queueRequest(CanNode::${target}, Property::k${property});

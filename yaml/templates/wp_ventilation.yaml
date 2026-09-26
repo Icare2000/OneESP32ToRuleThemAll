@@ -1,0 +1,86 @@
+defaults:
+  exposed: "true"
+
+fan:
+  - platform: template
+    name: ${property}
+    id: ${property}
+    speed_count: 3
+    restore_mode: NO_RESTORE
+    on_speed_set:
+      - lambda: |-
+          const auto fan_speed = std::min(3, x);
+          ESP_LOGI("fan", "Speed set %d", fan_speed);
+          queueTransmission(CanNode::Kessel, Property::k${property}, fan_speed);
+          scheduleRequest(CanNode::Kessel, Property::kZULUFT_SOLL, std::chrono::seconds(10));
+          scheduleRequest(CanNode::Kessel, Property::kZULUFT_IST, std::chrono::seconds(10));
+          scheduleRequest(CanNode::Kessel, Property::kABLUFT_SOLL, std::chrono::seconds(10));
+          scheduleRequest(CanNode::Kessel, Property::kABLUFT_IST, std::chrono::seconds(10));
+    on_turn_off:
+      - lambda: |-
+          ESP_LOGI("fan", "Fan turned off!");
+          queueTransmission(CanNode::Kessel, Property::k${property}, 0U);
+          scheduleRequest(CanNode::Kessel, Property::kZULUFT_SOLL, std::chrono::seconds(10));
+          scheduleRequest(CanNode::Kessel, Property::kZULUFT_IST, std::chrono::seconds(10));
+          scheduleRequest(CanNode::Kessel, Property::kABLUFT_SOLL, std::chrono::seconds(10));
+          scheduleRequest(CanNode::Kessel, Property::kABLUFT_IST, std::chrono::seconds(10));
+    on_turn_on:
+      - lambda: |-
+          ESP_LOGI("fan", "Fan turned on!");
+          queueTransmission(CanNode::Kessel, Property::k${property}, id(${property}).speed);
+          scheduleRequest(CanNode::Kessel, Property::kZULUFT_SOLL, std::chrono::seconds(10));
+          scheduleRequest(CanNode::Kessel, Property::kZULUFT_IST, std::chrono::seconds(10));
+          scheduleRequest(CanNode::Kessel, Property::kABLUFT_SOLL, std::chrono::seconds(10));
+          scheduleRequest(CanNode::Kessel, Property::kABLUFT_IST, std::chrono::seconds(10));
+    on_state:
+      then:
+        - if:
+            condition:
+              lambda: |-
+                #if defined(ANALYTICS)
+                  return getWhitelistedEntities().contains(id(${property}));
+                #else
+                  return false;
+                #endif
+            then:
+              - script.execute:
+                  id: mqtt_push_event
+                  suffix: ${property}
+                  payload: !lambda 'return x->state ? to_string(x->speed) : "0";'
+
+esphome:
+  on_boot:
+    - priority: -50
+      then:
+        - lambda: |-
+            CallbackHandler::instance().addCallbacks({{CanNode::Kessel,Property::k${property}},
+                                                    {CanNode::Heizmodul,Property::k${property}}},[](const SimpleVariant& value){
+                const auto fan_speed = std::min(static_cast<std::uint16_t>(3U),static_cast<std::uint16_t>(value));
+                auto fan = id(${property});
+
+                const bool is_already_off = (fan_speed == 0 && !fan->state);
+                const bool is_already_at_speed = (fan_speed > 0 && fan->state && fan->speed == fan_speed);
+                if (is_already_off || is_already_at_speed) {
+                    return;
+                }
+
+                // only speeds between 1 and speed_count are allowed
+                if(fan_speed == 0) {
+                  fan->state = false;
+                } else {
+                  fan->state = true;
+                  fan->speed = fan_speed;
+                }
+                fan->publish_state();
+            });
+
+            #if defined(ANALYTICS)
+              if(${exposed}) {
+                getWhitelistedEntities().insert(id(${property}));
+              }
+            #endif
+    - priority: -100.0
+      then:
+        - delay: 250ms
+        - lambda: |-
+            queueRequest(CanNode::Kessel, Property::k${property});

@@ -1,0 +1,169 @@
+defaults:
+  rx_pin: "GPIO2"
+
+#########################################
+#                                       #
+#   UART configuration                  #
+#                                       #
+#########################################
+uart:
+  id: smartmeter_uart
+  rx_pin: ${rx_pin}
+  baud_rate: 9600
+
+substitutions:
+  mqtt_server: !secret mqtt_server
+  mqtt_user: !secret mqtt_user
+  mqtt_password: !secret mqtt_password
+
+#########################################
+#                                       #
+#   SML reader                          #
+#                                       #
+#########################################
+sml_reader:
+  id: sml_reader_component
+  uart_id: smartmeter_uart
+  mqtt_server: "${mqtt_server}"
+  mqtt_user: "${mqtt_user}"
+  mqtt_password: "${mqtt_password}"
+  total_incoming: Total_Incoming
+  total_outgoing: Total_Outgoing
+  instantaneous_power: Instantaneous_Power
+  frequency: Frequency
+  instantaneous_power_l1: Instantaneous_Power_L1
+  instantaneous_power_l2: Instantaneous_Power_L2
+  instantaneous_power_l3: Instantaneous_Power_L3
+  instantaneous_voltage_l1: Instantaneous_Voltage_L1
+  instantaneous_voltage_l2: Instantaneous_Voltage_L2
+  instantaneous_voltage_l3: Instantaneous_Voltage_L3
+  instantaneous_current_l1: Instantaneous_Current_L1
+  instantaneous_current_l2: Instantaneous_Current_L2
+  instantaneous_current_l3: Instantaneous_Current_L3
+
+#########################################
+#                                       #
+#   sensor configuration                #
+#                                       #
+#########################################
+sensor:
+  - platform: template
+    name: "Total incoming"
+    id: Total_Incoming
+    #obis_code: "1-0:1.8.0"
+    unit_of_measurement: kWh
+    device_class: energy
+    state_class: total_increasing
+    filters:
+      - multiply: 0.001
+      - throttle: $interval_very_fast
+
+  - platform: template
+    name: "Total outgoing"
+    id: Total_Outgoing
+    #obis_code: "1-0:2.8.0"
+    unit_of_measurement: kWh
+    device_class: energy
+    state_class: total_increasing
+    filters:
+      - multiply: 0.001
+      - throttle: $interval_very_fast
+
+  - platform: template
+    name: "Instantaneous Power"
+    id: Instantaneous_Power
+    #obis_code: "1-0:16.7.0"
+    unit_of_measurement: W
+    device_class: power
+    filters:
+      - throttle: $interval_very_fast
+
+  - platform: template
+    name: "Frequency"
+    id: Frequency
+    #obis_code: "1-0:14.7.0"
+    unit_of_measurement: Hz
+    device_class: frequency
+    filters:
+      - throttle: $interval_very_fast
+
+  - platform: template
+    name: "Instantaneous Power L1"
+    id: Instantaneous_Power_L1
+    #obis_code: "1-0:36.7.0"
+    unit_of_measurement: W
+    device_class: power
+    filters:
+      - throttle: $interval_very_fast
+
+  - platform: template
+    name: "Instantaneous Power L2"
+    id: Instantaneous_Power_L2
+    #obis_code: "1-0:56.7.0"
+    unit_of_measurement: W
+    device_class: power
+    filters:
+      - throttle: $interval_very_fast
+
+  - platform: template
+    name: "Instantaneous Power L3"
+    id: Instantaneous_Power_L3
+    #obis_code: "1-0:76.7.0"
+    unit_of_measurement: W
+    device_class: power
+    filters:
+      - throttle: $interval_very_fast
+
+  - platform: template
+    name: "Instantaneous Voltage L1"
+    id: Instantaneous_Voltage_L1
+    #obis_code: "1-0:32.7.0"
+    unit_of_measurement: V
+    device_class: voltage
+    filters:
+      - throttle: $interval_very_fast
+
+  - platform: template
+    name: "Instantaneous Voltage L2"
+    id: Instantaneous_Voltage_L2
+    #obis_code: "1-0:52.7.0"
+    unit_of_measurement: V
+    device_class: voltage
+    filters:
+      - throttle: $interval_very_fast
+
+  - platform: template
+    name: "Instantaneous Voltage L3"
+    id: Instantaneous_Voltage_L3
+    #obis_code: "1-0:72.7.0"
+    unit_of_measurement: V
+    device_class: voltage
+    filters:
+      - throttle: $interval_very_fast
+
+  - platform: template
+    name: "Instantaneous Current L1"
+    id: Instantaneous_Current_L1
+    #obis_code: "1-0:31.7.0"
+    unit_of_measurement: A
+    device_class: current
+    filters:
+      - throttle: $interval_very_fast
+
+  - platform: template
+    name: "Instantaneous Current L2"
+    id: Instantaneous_Current_L2
+    #obis_code: "1-0:51.7.0"
+    unit_of_measurement: A
+    device_class: current
+    filters:
+      - throttle: $interval_very_fast
+
+  - platform: template
+    name: "Instantaneous Current L3"
+    id: Instantaneous_Current_L3
+    #obis_code: "1-0:71.7.0"
+    unit_of_measurement: A
+    device_class: current
+    filters:
+      - throttle: $interval_very_fast

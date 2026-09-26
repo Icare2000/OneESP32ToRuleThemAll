@@ -1,0 +1,225 @@
+#########################################
+#                                       #
+#   ESPHome                             #
+#                                       #
+#########################################
+esphome:
+  platformio_options:
+    build_flags:
+      - "-std=gnu++2a"
+      - "-DESPCLIENT_ID=$espclient_can_id"
+    build_unflags:
+      - "-std=gnu++11"
+
+esp32:
+  framework:
+    advanced:
+      loop_task_stack_size: 16384
+
+wp_core:
+
+#########################################
+#                                       #
+#   Substitutions                       #
+#                                       #
+#########################################
+substitutions:
+  interval_very_fast: 15s
+  interval_fast: 30s
+  interval_medium: 60s
+  interval_slow: 5min
+  interval_very_slow: 15min
+  interval_once_in_a_while: 1h
+  espclient_can_id: 0x6a2
+
+#########################################
+#                                       #
+#   Time Synchronization                #
+#                                       #
+#########################################
+time:
+  - platform: homeassistant
+    id: homeassistant_time
+    timezone: $timezone
+    on_time:
+      - seconds: 0
+        minutes: 5
+        hours: 3 # sync at 3 am should be ok even with switch from/to daylight saving time
+        days_of_week: SUN
+        then:
+          - lambda: |-
+              syncTime(homeassistant_time);
+
+#########################################
+#                                       #
+#   Home Assistant Sensors              #
+#                                       #
+#########################################
+sensor:
+  - platform: homeassistant
+    name: Temperature Sensor From Home Assistant
+    id: ha_temperature_sensor
+    entity_id: $entity_room_temperature
+    filters:
+      - heartbeat:
+          period: $interval_medium
+          optimistic: true
+    on_value:
+      then:
+        - lambda: |-
+            if (x > 0.0f) {
+              ESP_LOGI("SET", "Sending room temperature %f to heatpump", x);
+              queueTransmission(CanNode::HK1, Property::kRAUMISTTEMP, static_cast<std::uint16_t>(x * 10.0f));
+            }
+
+  - platform: homeassistant
+    name: Humidity Sensor From Home Assistant
+    id: ha_humidity_sensor
+    entity_id: $entity_humidity
+    filters:
+      - heartbeat:
+          period: $interval_medium
+          optimistic: true
+    on_value:
+      then:
+        - lambda: |-
+            if (x > 0.0f) {
+              ESP_LOGI("SET", "Sending humidity %f to heatpump", x);
+              queueTransmission(CanNode::HK1, Property::kRAUMFEUCHTE, static_cast<std::uint16_t>(x * 10.0f));
+            }
+
+#########################################
+#                                       #
+#   Buttons                             #
+#                                       #
+#########################################
+button:
+  - platform: template
+    name: Synchronize Time
+    on_press:
+      then:
+        - lambda: |-
+            syncTime(homeassistant_time);
+
+#########################################
+#                                       #
+#   Intervals                           #
+#                                       #
+#########################################
+interval:
+  - interval: 250ms
+    then:
+      - lambda: |-
+          // Request sensor value one after another.
+          if(!getConditionalRequests().empty()) {
+            // find the next request of which the condition evaluates to true
+            auto it = std::find_if(getConditionalRequests().begin(),getConditionalRequests().end(),[](const auto& element){
+              return !element._condition || element._condition();
+            });
+            if(it != getConditionalRequests().end()) {
+              requestData(wp_can, it->_task.first, it->_task.second);
+              getConditionalRequests().erase(it);
+            }
+          }
+  - interval: 50ms
+    then:
+      - lambda: |-
+          // Request sensor value one after another.
+          if(!getConditionalTransmissions().empty()) {
+            // find the next request of which the condition evaluates to true
+            auto it = std::find_if(getConditionalTransmissions().begin(),getConditionalTransmissions().end(),[](const auto& element){
+              return !element._condition || element._condition();
+            });
+            if(it != getConditionalTransmissions().end()) {
+              sendData(wp_can, it->_task.first, it->_task.second, it->_value);
+              getConditionalTransmissions().erase(it);
+            }
+          }
+
+#########################################
+#                                       #
+#   CANbus configuration                #
+#                                       #
+#########################################
+canbus:
+  - id: wp_can
+    can_id: $espclient_can_id
+    use_extended_id: false
+    on_frame:
+    - can_id: 0
+      can_id_mask: 0
+      then:
+        - lambda: |-
+            ESP_LOGD("CAN", "Can message received with CANId 0x%04lx", can_id);
+            const auto [property, value] = processCanMessage(x);
+            const auto* canNode = getCanNodeByCanId(can_id);
+            if(canNode != nullptr) {
+              auto callback = CallbackHandler::instance().getCallback(std::make_pair(canNode,property));
+              callback(value);
+            } else {
+              ESP_LOGD("CAN", "No CanNode with CANId 0x%04lx available.", can_id);
+            }
+
+#########################################
+#                                       #
+#   Home Assistant Actions              #
+#                                       #
+#########################################
+api:
+  actions:
+    - action: can_send_raw_data
+      variables:
+        data: int[]
+      then:
+        - lambda: |-
+            if(data.size() != 7U) {
+              ESP_LOGE("ACTION", "Data is expected to have 7 elements, but has %zd .", data.size());
+              return;
+            }
+            ESP_LOGI("ACTION", "Sending data (0x%02lx 0x%02lx 0x%02lx 0x%02lx 0x%02lx 0x%02lx 0x%02lx)", data[0], data[1], data[2], data[3], data[4], data[5], data[6]);
+            const auto use_extended_id{false};
+            std::vector<std::uint8_t> payload;
+            payload.resize(data.size());
+            std::transform(data.begin(),data.end(),payload.begin(),[](const auto in){ return static_cast<std::uint8_t>(in);});
+            id(wp_can).send_data(CanNode::ESPClient->canId, use_extended_id, payload);
+    - action: can_send_value
+      variables:
+        property: int
+        target: string
+        raw_value: int
+      then:
+        - lambda: |-
+            Property mappedProperty(static_cast<std::uint16_t>(property));
+            const auto value{static_cast<std::uint16_t>(raw_value)};
+            if(const auto* node = getCanNodeByName(target); node != nullptr) {
+              ESP_LOGI("ACTION", "Sending value %d for property %s (0x%04x) to %s", value, std::string(mappedProperty.name).c_str(), mappedProperty.id, target.c_str());
+              queueTransmission(node, mappedProperty, value);
+            } else {
+              ESP_LOGI("ACTION","No CanNode with name %s defined!", target.c_str());
+            }
+
+#########################################
+#                                       #
+#   Scripts                             #
+#                                       #
+#########################################
+script:
+  - id: mqtt_push_event
+    mode: queued
+    parameters:
+      suffix: string
+      payload: string
+    then:
+
+#########################################
+#                                       #
+#   Packages                            #
+#                                       #
+#########################################
+packages:
+  KESSEL:    !include { file: templates/wp_can_id.yaml, vars: { can_node: "Kessel"   , can_id: "0x180" }}
+  HK1:       !include { file: templates/wp_can_id.yaml, vars: { can_node: "HK1"      , can_id: "0x301" }}
+  HK2:       !include { file: templates/wp_can_id.yaml, vars: { can_node: "HK2"      , can_id: "0x302" }}
+  HEIZMODUL: !include { file: templates/wp_can_id.yaml, vars: { can_node: "Heizmodul", can_id: "0x6a1" }}
+  FET:       !include { file: templates/wp_can_id.yaml, vars: { can_node: "FET"      , can_id: "0x402" }}
+  MFG:       !include { file: templates/wp_can_id.yaml, vars: { can_node: "MFG"      , can_id: "0x700" }}

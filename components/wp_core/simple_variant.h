@@ -1,0 +1,78 @@
+#if !defined(SIMPLE_VARIANT_H)
+#define SIMPLE_VARIANT_H
+
+#include <cstdint>
+#include <string>
+#include <type_traits>
+#include <variant>
+
+template <typename T>
+struct is_string
+    : public std::disjunction<std::is_same<char*, std::decay_t<T>>, std::is_same<const char*, std::decay_t<T>>,
+                              std::is_same<std::string, std::decay_t<T>>> {};
+
+template <typename T>
+inline constexpr bool is_string_v = is_string<T>::value;
+
+template <typename T>
+using is_bool = std::is_same<T, bool>;
+
+template <typename T>
+inline constexpr bool is_bool_v = is_bool<T>::value;
+
+template <typename, typename = void>
+struct normalized;
+
+template <typename T>
+struct normalized<T, std::enable_if_t<std::is_integral_v<T> && !is_bool_v<T>>> {
+    // this is needed, because there are no "int" sensors, only float.
+    using type = float;
+};
+
+template <typename T>
+struct normalized<T, std::enable_if_t<std::is_floating_point_v<T>>> {
+    // for sensors
+    using type = float;
+};
+
+template <typename T>
+struct normalized<T, std::enable_if_t<is_bool_v<T>>> {
+    // for binary sensors
+    using type = bool;
+};
+
+template <typename T>
+struct normalized<T, std::enable_if_t<is_string_v<T>>> {
+    // for text sensors
+    using type = std::string;
+};
+
+template <typename T>
+using normalized_t = typename normalized<T>::type;
+
+struct SimpleVariant {
+    SimpleVariant() = default;
+
+    template <typename T>
+    SimpleVariant(const T& value) : v(static_cast<normalized_t<T>>(value)) {}
+
+    template <typename T>
+    bool holds_alternative() const {
+        return std::holds_alternative<normalized_t<T>>(v);
+    }
+
+    template <typename T>
+    const T get() const {
+        return static_cast<T>(std::get<normalized_t<T>>(v));
+    }
+
+    template <typename T>
+    operator T() const {
+        return get<T>();
+    }
+
+   private:
+    std::variant<std::monostate, bool, float, std::string> v;
+};
+
+#endif

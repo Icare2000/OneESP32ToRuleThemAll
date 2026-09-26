@@ -1,0 +1,172 @@
+esphome:
+  on_boot:
+    - priority: -100
+      then:
+        - lambda: |-
+            // 1. Generate the unique Hash from MAC
+            uint32_t hash = fnv1_hash(get_mac_address());
+            char id_buf[16];
+            sprintf(id_buf, "%08lx", hash);
+            std::string my_obfuscated_id = std::string(id_buf);
+
+            // 2. Set IDs and Enable MQTT
+            id(analytics_mqtt).set_client_id(my_obfuscated_id);
+            id(global_device_id).publish_state(my_obfuscated_id);
+            id(analytics_mqtt).enable();
+        - wait_until:
+            mqtt.connected:
+        - lambda: |-
+            // Publish identity incl.. Git-Hash
+            // Format: variant,district,githash
+            std::string info_payload = id(heat_pump_variant) + "," + ${district} + "," + "${version_hash}";
+            id(analytics_mqtt).publish("analytics/v1/" + id(global_device_id).state + "/info", info_payload, 0, true);
+        - script.execute: check_for_update
+  platformio_options:
+    build_flags:
+      - "-DANALYTICS"
+
+substitutions:
+  version_hash: !include ../../version
+
+text_sensor:
+  - platform: template
+    name: "Analytics Global Device ID"
+    id: global_device_id
+    icon: "mdi:identifier"
+    entity_category: "diagnostic"
+
+mqtt:
+  id: analytics_mqtt
+  broker: oneesp32torulethemall.freeddns.org
+  port: 1883
+  username: OneESP32ToRuleThemAll
+  password: OneESP32ToRuleThemAll
+  enable_on_boot: false
+  clean_session: true
+  topic_prefix: null
+  discovery: false
+  discover_ip: false
+  reboot_timeout: 0s
+  keepalive: 60s
+  on_connect:
+    then:
+      - binary_sensor.template.publish:
+          id: analytics_mqtt_connected
+          state: ON
+      - lambda: |-
+          if (id(homeassistant_time).now().is_valid()) {
+            id(analytics_last_update).publish_state(id(homeassistant_time).now().timestamp);
+          }
+  on_disconnect:
+    then:
+      - binary_sensor.template.publish:
+          id: analytics_mqtt_connected
+          state: OFF
+
+http_request:
+  useragent: esphome
+  timeout: 10s
+  verify_ssl: false
+
+script:
+  - id: !extend mqtt_push_event
+    then:
+      - lambda: |-
+          if (!id(analytics_mqtt).is_connected()) {
+            return;
+          }
+
+          // Determine if payload is numeric
+          bool is_numeric = true;
+          for(char const &c : payload) {
+              if(!std::isdigit(c) && c != '.' && c != '-') {
+                  is_numeric = false;
+                  break;
+              }
+          }
+
+          std::string type_path = is_numeric ? "numeric" : "status";
+          
+          // New Topic Structure: analytics/v1/[HASH]/events/[TYPE]/[NAME]
+          std::string topic = "analytics/v1/" + id(global_device_id).state +
+                            "/events/" + type_path + "/" + suffix;
+
+          id(analytics_mqtt).publish(topic, payload, 0, true);
+          if (id(homeassistant_time).now().is_valid()) {
+            id(analytics_last_update).publish_state(id(homeassistant_time).now().timestamp);
+          }
+  - id: check_for_update
+    then:
+      - http_request.get:
+          url: "https://raw.githubusercontent.com/kr0ner/OneESP32ToRuleThemAll/refs/heads/master/version"
+          capture_response: true
+          on_response:
+            then:
+              - lambda: |-
+                  std::string remote_version = body;
+                  remote_version.erase(remote_version.find_last_not_of(" \n\r\t") + 1);
+                  std::string local_version = "${version_hash}";
+
+                  if (remote_version != local_version) {
+                    ESP_LOGI("update", "New version found: %s (Local: %s)", remote_version.c_str(), local_version.c_str());
+                    id(update_available_sensor).publish_state(true);
+                  } else {
+                    ESP_LOGI("update", "Versions match. No update needed.");
+                    id(update_available_sensor).publish_state(false);
+                  }
+          on_error:
+            then:
+              - logger.log: "Request failed!"
+
+interval:
+  - interval: 15min
+    then:
+      - lambda: |-
+          if (!id(analytics_mqtt).is_connected()) return;
+          
+          // Topic: analytics/v1/[HASH]/[SENSOR]
+          std::string base = "analytics/v1/" + id(global_device_id).state + "/";
+
+          for (auto *obj : App.get_sensors()) {
+            if (!obj->is_internal() &&
+                !std::isnan(obj->state) &&
+                getWhitelistedEntities().contains(static_cast<esphome::EntityBase*>(obj))) {
+              id(analytics_mqtt).publish(base + obj->get_name(), to_string(obj->state), 0, true);
+            }
+          }
+
+          if (id(homeassistant_time).now().is_valid()) {
+            id(analytics_last_update).publish_state(id(homeassistant_time).now().timestamp);
+          }
+  - interval: 12h
+    then:
+      - script.execute: check_for_update
+
+binary_sensor:
+  - platform: template
+    name: "Analytics MQTT Connected"
+    id: analytics_mqtt_connected
+    entity_category: "diagnostic"
+    device_class: "connectivity"
+  - platform: template
+    name: "Github"
+    entity_category: "diagnostic"
+    id: update_available_sensor
+    device_class: update
+
+sensor:
+  - platform: template
+    name: "Analytics Last Update"
+    id: analytics_last_update
+    device_class: "timestamp"
+    entity_category: "diagnostic"
+    icon: "mdi:clock-check-outline"
+
+button:
+  - platform: template
+    name: Check for Update
+    entity_category: "diagnostic"
+    icon: "mdi:update"
+    on_press:
+      then:
+        - script.execute: check_for_update

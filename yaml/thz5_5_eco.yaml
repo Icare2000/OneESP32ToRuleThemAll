@@ -1,13 +1,33 @@
+#########################################
+#                                       #
+#   ESPHome                             #
+#                                       #
+#########################################
 esphome:
   platformio_options:
     build_flags:
       - "-DTHZ_5_5_ECO"
 
+#########################################
+#                                       #
+#   Global variables                    #
+#                                       #
+#########################################
+globals:
+  - id: heat_pump_variant
+    type: std::string
+    initial_value: '"THZ55ECO"'
+
+#########################################
+#                                       #
+#   Packages                            #
+#                                       #
+#########################################
 packages:
-  COMMON: !include { file: common.yaml}
-  BASE:   !include { file: wp_base.yaml}
-  
-  LUEFT_STUFE_BEREITSCHAFT:       !include { file: wp_ventilation.yaml, vars: { property: "LUEFT_STUFE_BEREITSCHAFT" }}
-  LUEFT_STUFE_HAND:               !include { file: wp_ventilation.yaml, vars: { property: "LUEFT_STUFE_HAND" }}
-  LAUFZEIT_FILTER_TAGE:           !include { file: wp_generic.yaml, vars: { property: "LAUFZEIT_FILTER_TAGE",icon: "mdi:air-filter", unit: "d", update_interval: $interval_once_in_a_while  }}
-  SOMMERBETRIEB_TEMP:             !include { file: wp_number.yaml, vars:  { property: "SOMMERBETRIEB_TEMP", icon: "mdi:sun-thermometer", min: "15.0", max: "25.0", step: "1.0", unit: "°C"  }}
+  THZ_BASE:      !include { file: thz_base.yaml }
+
+  ZEITSPERRE_NE: !include { file: templates/wp_number.yaml , vars: { property: "ZEITSPERRE_NE" , icon: "mdi:valve" , min: "0", max: "360", step: "5.0" }}
+  LUEFT_ZEIT_AUSSERPLAN_STUFE1: !include { file: templates/wp_number.yaml, vars: { property: "LUEFT_ZEIT_AUSSERPLAN_STUFE1",   icon: "mdi:fan-clock", min: "0", max: "1000",  step: "5"   }}
+  LUEFT_ZEIT_AUSSERPLAN_STUFE2: !include { file: templates/wp_number.yaml, vars: { property: "LUEFT_ZEIT_AUSSERPLAN_STUFE2",   icon: "mdi:fan-clock", min: "0", max: "1000",  step: "5"   }}
+  LUEFT_ZEIT_AUSSERPLAN_STUFE3: !include { file: templates/wp_number.yaml, vars: { property: "LUEFT_ZEIT_AUSSERPLAN_STUFE3",   icon: "mdi:fan-clock", min: "0", max: "1000",  step: "5"   }}
+  LUEFT_STUFE_AUSSERPLAN: !include { file: templates/wp_number.yaml, vars: { property: "LUEFT_STUFE_AUSSERPLAN", icon: "mdi:fan-chevron-up", min: "1", max: "3", step: "1" }}

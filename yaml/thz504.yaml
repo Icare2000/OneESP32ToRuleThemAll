@@ -1,12 +1,32 @@
+#########################################
+#                                       #
+#   ESPHome                             #
+#                                       #
+#########################################
 esphome:
   platformio_options:
     build_flags:
       - "-DTHZ_504"
 
-packages:
-  COMMON: !include { file: common.yaml}
-  BASE:   !include { file: wp_base.yaml}
+#########################################
+#                                       #
+#   Global variables                    #
+#                                       #
+#########################################
+globals:
+  - id: heat_pump_variant
+    type: std::string
+    initial_value: '"THZ504"'
 
-  ABLUFT_TAUPUNKT:      !include { file: wp_temperature.yaml, vars: { property: "ABLUFT_TAUPUNKT"  }}
-  DIFFERENZDRUCK:       !include { file: wp_generic.yaml, vars: { property: "DIFFERENZDRUCK"      , icon: "mdi:air-filter", unit: "Pa", update_interval: $interval_medium           }}
-  LAUFZEIT_FILTER_TAGE: !include { file: wp_generic.yaml, vars: { property: "LAUFZEIT_FILTER_TAGE", icon: "mdi:air-filter", unit: "d" , update_interval: $interval_once_in_a_while  }}
+#########################################
+#                                       #
+#   Packages                            #
+#                                       #
+#########################################
+packages:
+  THZ_BASE:        !include { file: thz_base.yaml }
+
+  ABLUFT_TAUPUNKT: !include { file: templates/wp_temperature.yaml, vars: { property: "ABLUFT_TAUPUNKT" }}
+
+  DIFFERENZDRUCK:              !include { file: templates/wp_generic.yaml, vars: { property: "DIFFERENZDRUCK"              , update_interval: $interval_medium, unit: "Pa", icon: "mdi:air-filter"}}
+  LAUFZEIT_VERDICHTER_KUEHLEN: !include { file: templates/wp_generic.yaml, vars: { property: "LAUFZEIT_VERDICHTER_KUEHLEN" , update_interval: $interval_slow  , unit: "h" , icon: "mdi:timer-sand-complete", state_class: "total_increasing" }}

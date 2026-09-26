@@ -1,8 +1,67 @@
+#########################################
+#                                       #
+#   ESPHome                             #
+#                                       #
+#########################################
 esphome:
   platformio_options:
     build_flags:
       - "-DTHZ_404"
 
+#########################################
+#                                       #
+#   Global variables                    #
+#                                       #
+#########################################
+globals:
+  - id: heat_pump_variant
+    type: std::string
+    initial_value: '"THZ404"'
+  - id: sommermodus_state
+    type: bool
+    restore_value: yes
+    initial_value: 'false'
+
+#########################################
+#                                       #
+#   Binary Sensors                      #
+#                                       #
+#########################################
+binary_sensor:
+  - platform: template
+    name: "SOMMERMODUS"
+    id: SOMMERMODUS
+    lambda: |-
+      if (id(AUSSENTEMP).state >= (id(SOMMERBETRIEB_TEMP).state + id(SOMMERBETRIEB_HYSTERESE).state)) {
+        id(sommermodus_state) = true;
+      } else if (id(AUSSENTEMP).state <= (id(SOMMERBETRIEB_TEMP).state - id(SOMMERBETRIEB_HYSTERESE).state)) {
+        id(sommermodus_state) = false;
+      }
+      return id(sommermodus_state);
+
+#########################################
+#                                       #
+#   Template Sensors                    #
+#                                       #
+#########################################
+sensor:
+  - platform: template
+    name: "HEIZKREIS_DIFF"
+    id: HEIZKREIS_DIFF
+    icon: "mdi:swap-vertical"
+    state_class: "measurement"
+    accuracy_decimals: 1
+    lambda: |-
+      return (id(RUECKLAUFISTTEMP).state - id(VORLAUFSOLLTEMP).state);
+
+#########################################
+#                                       #
+#   Packages                            #
+#                                       #
+#########################################
 packages:
-  COMMON: !include { file: common.yaml}
-  BASE:   !include { file: wp_base.yaml}
+  THZ_BASE:                !include { file: thz_base.yaml }
+
+  SOMMERBETRIEB_HYSTERESE: !include { file: templates/wp_temperature.yaml, vars: { property: "SOMMERBETRIEB_HYSTERESE", update_interval: $interval_slow }}
+
+  AKTIVE_HEIZSTUFEN:       !include { file: templates/wp_generic.yaml, vars: { property: "AKTIVE_HEIZSTUFEN", update_interval: $interval_medium, icon: "mdi:heat-pump-outline"}}

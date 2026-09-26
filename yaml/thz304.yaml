@@ -1,0 +1,300 @@
+#########################################
+#                                       #
+#   ESPHome                             #
+#                                       #
+#########################################
+esphome:
+  platformio_options:
+    build_flags:
+      - "-DTHZ_304"
+  on_boot:
+    - priority: -50
+      then:
+        - lambda: |-
+            CallbackHandler::instance().addCallback(std::make_pair(CanNode::Kessel,Property::kZULUFT_IST),[](const SimpleVariant& value){
+              // workaround for broken ninth bit of BETRIEBSSTATUS
+              const auto zuluftIst = static_cast<std::uint16_t>(value);
+              id(LUEFTUNG).publish_state(zuluftIst > 0U);
+            });
+
+            CallbackHandler::instance().addCallbacks({std::make_pair(CanNode::Kessel,Property::kABLUFT_SOLL),
+                                                      std::make_pair(CanNode::Kessel,Property::kZULUFT_SOLL)},
+                                                      [](const SimpleVariant&) {
+              const auto airflowIn{id(ZULUFT_SOLL).state};
+              const auto airflowOut{id(ABLUFT_SOLL).state};
+              auto getPower = [](const float airflow){
+                if(airflow < 0.1f) {
+                  return 0.0f;
+                }
+                /* This equation is base on the following measurement:
+                * airflow (l/min)       : 0 140 190 220 300
+                * combined fan power (W): 0  30  50  80 170
+                * @note: the last value is taken as from the THZ504 specification.
+                */
+                return (0.00005f * std::pow(airflow, 2.5f) + 3.0f);
+              };
+              id(FAN_POWER).publish_state(getPower(airflowIn) + getPower(airflowOut));
+            });
+
+            id(ELEKTRISCHE_NACHERWAERMUNG).add_on_state_callback([](const bool state){
+              const auto electricHeatingPower = state ? id(NE_STUFE_WW).state * 230.0 /*V*/ * 12.6 /*A*/ : 0.0f;
+              id(ELECTRIC_HEATING_POWER).publish_state(electricHeatingPower);
+            });
+
+            CallbackHandler::instance().addCallback(std::make_pair(CanNode::Kessel,Property::kBETRIEBS_STATUS_2),[](const SimpleVariant& value){
+              const std::bitset<2U> status_bits{static_cast<std::uint16_t>(value)};
+              id(SOMMERBETRIEB_AKTIV).publish_state(status_bits.test(0U));
+              id(OFEN_KAMIN_AKTIV).publish_state(status_bits.test(1U));
+            });
+
+            CallbackHandler::instance().addCallback(std::make_pair(CanNode::Kessel,Property::kBETRIEBS_STATUS),[](const SimpleVariant& value){
+              const std::bitset<15U> status_bits{static_cast<std::uint16_t>(value)};
+              id(SCHALTPROGRAMM_AKTIV).publish_state(status_bits.test(0U));
+              id(VERDICHTER).publish_state(status_bits.test(1U));
+              id(HEIZEN).publish_state(status_bits.test(2U));
+              id(KUEHLEN).publish_state(status_bits.test(3U));
+              id(WARMWASSERBEREITUNG).publish_state(status_bits.test(4U));
+              id(ELEKTRISCHE_NACHERWAERMUNG).publish_state(status_bits.test(5U));
+              id(SERVICE).publish_state(status_bits.test(6U));
+              id(EVU_SPERRE).publish_state(status_bits.test(7U));
+              id(FILTERWECHSEL_BEIDE).publish_state(status_bits.test(8U));
+              // seems to be broken id(LUEFTUNG).publish_state(status_bits.test(9U));
+              id(HEIZKREISPUMPE).publish_state(status_bits.test(10U));
+              id(ABTAUEN_VERDAMPFER).publish_state(status_bits.test(11U));
+              id(FILTERWECHSEL_ABLUFT).publish_state(status_bits.test(12U));
+              id(FILTERWECHSEL_ZULUFT).publish_state(status_bits.test(13U));
+              id(AUFHEIZPROGRAMM_AKTIV).publish_state(status_bits.test(14U));
+            });
+    - priority: -100.0
+      then:
+        - lambda: |-
+            scheduleRequest(CanNode::Kessel, Property::kZULUFT_IST, std::chrono::seconds(10));
+            scheduleRequest(CanNode::Kessel, Property::kBETRIEBS_STATUS_2, std::chrono::seconds(10));
+            scheduleRequest(CanNode::Kessel, Property::kBETRIEBS_STATUS, std::chrono::seconds(10));
+            // Query firmware only once
+            scheduleRequest(CanNode::Kessel, Property::kFIRMWARE_VERSION, std::chrono::seconds(10));
+
+#########################################
+#                                       #
+#   Global variables                    #
+#                                       #
+#########################################
+globals:
+  - id: heat_pump_variant
+    type: std::string
+    initial_value: '"THZ304"'
+
+#########################################
+#                                       #
+#   Template Sensors                    #
+#                                       #
+#########################################
+sensor:
+  - platform: template
+    name: "FAN POWER"
+    id: FAN_POWER
+    state_class: measurement
+    device_class: power
+    unit_of_measurement: "W"
+  - platform: template
+    name: "ELECTRIC HEATING POWER"
+    id: ELECTRIC_HEATING_POWER
+    state_class: measurement
+    device_class: power
+    unit_of_measurement: "W"
+
+#########################################
+#                                       #
+#   Custom climates                     #
+#                                       #
+#########################################
+climate:
+  - platform: wp_climate
+    name: "Heating Day"
+    type: heating
+    current_temp: RAUMISTTEMP
+    target_temp: RAUMSOLLTEMP_TAG
+    heating: HEIZEN
+    fan: LUEFTUNG
+    target_property: kRAUMSOLLTEMP_TAG
+    visual:
+      min_temperature: 10.0
+      max_temperature: 30.0
+      temperature_step:
+        target_temperature: 0.1
+        current_temperature: 0.1
+
+  - platform: wp_climate
+    name: "Heating Night"
+    type: heating
+    current_temp: RAUMISTTEMP
+    target_temp: RAUMSOLLTEMP_NACHT
+    heating: HEIZEN
+    fan: LUEFTUNG
+    target_property: kRAUMSOLLTEMP_NACHT
+    visual:
+      min_temperature: 10.0
+      max_temperature: 30.0
+      temperature_step:
+        target_temperature: 0.1
+        current_temperature: 0.1
+
+  - platform: wp_climate
+    name: "Hot Water Day"
+    type: hot_water
+    current_temp: SPEICHERISTTEMP
+    target_temp: SPEICHERSOLLTEMP_TAG
+    heating: WARMWASSERBEREITUNG
+    target_property: kSPEICHERSOLLTEMP_TAG
+    visual:
+      min_temperature: 10.0
+      max_temperature: 65.0
+      temperature_step:
+        target_temperature: 0.5
+        current_temperature: 0.1
+
+  - platform: wp_climate
+    name: "Hot Water Night"
+    type: hot_water
+    current_temp: SPEICHERISTTEMP
+    target_temp: SPEICHERSOLLTEMP_NACHT
+    heating: WARMWASSERBEREITUNG
+    target_property: kSPEICHERSOLLTEMP_NACHT
+    visual:
+      min_temperature: 10.0
+      max_temperature: 65.0
+      temperature_step:
+        target_temperature: 0.5
+        current_temperature: 0.1
+
+  - platform: wp_climate
+    name: "Hot Water Manual"
+    type: hot_water
+    current_temp: SPEICHERISTTEMP
+    target_temp: SPEICHERSOLLTEMP_HAND
+    heating: WARMWASSERBEREITUNG
+    target_property: kSPEICHERSOLLTEMP_HAND
+    visual:
+      min_temperature: 10.0
+      max_temperature: 65.0
+      temperature_step:
+        target_temperature: 0.5
+        current_temperature: 0.1
+
+#########################################
+#                                       #
+#   Intervals                           #
+#                                       #
+#########################################
+interval:
+  - interval: $interval_once_in_a_while
+    then:
+    - lambda: |-
+        queueRequest(CanNode::Kessel, Property::kBETRIEBS_STATUS_2);
+
+#########################################
+#                                       #
+#   Buttons                             #
+#                                       #
+#########################################
+button:
+  - platform: template
+    name: "Reset Filter"
+    on_press:
+        lambda: |-
+            queueTransmission(CanNode::Kessel, Property::kRESET_FILTER, 1U);
+            scheduleRequest(CanNode::Kessel, Property::kLAUFZEIT_FILTER_TAGE, std::chrono::seconds(30));
+
+#########################################
+#                                       #
+#   Packages                            #
+#                                       #
+#########################################
+packages:
+  TXX_BASE:                            !include { file: txx_base.yaml }
+
+  SCHALTPROGRAMM_AKTIV:                !include { file: templates/wp_binary.yaml, vars: { name: "SCHALTPROGRAMM_AKTIV" }}
+  VERDICHTER:                          !include { file: templates/wp_binary.yaml, vars: { name: "VERDICHTER" }}
+  WARMWASSERBEREITUNG:                 !include { file: templates/wp_binary.yaml, vars: { name: "WARMWASSERBEREITUNG" }}
+  ELEKTRISCHE_NACHERWAERMUNG:          !include { file: templates/wp_binary.yaml, vars: { name: "ELEKTRISCHE_NACHERWAERMUNG" }}
+  SERVICE:                             !include { file: templates/wp_binary.yaml, vars: { name: "SERVICE" }}
+  HEIZEN:                              !include { file: templates/wp_binary.yaml, vars: { name: "HEIZEN" }}
+  KUEHLEN:                             !include { file: templates/wp_binary.yaml, vars: { name: "KUEHLEN" }}
+  LUEFTUNG:                            !include { file: templates/wp_binary.yaml, vars: { name: "LUEFTUNG" }}
+  EVU_SPERRE:                          !include { file: templates/wp_binary.yaml, vars: { name: "EVU_SPERRE" }}
+  FILTERWECHSEL_BEIDE:                 !include { file: templates/wp_binary.yaml, vars: { name: "FILTERWECHSEL_BEIDE" }}
+  HEIZKREISPUMPE:                      !include { file: templates/wp_binary.yaml, vars: { name: "HEIZKREISPUMPE" }}
+  ABTAUEN_VERDAMPFER:                  !include { file: templates/wp_binary.yaml, vars: { name: "ABTAUEN_VERDAMPFER" }}
+  FILTERWECHSEL_ABLUFT:                !include { file: templates/wp_binary.yaml, vars: { name: "FILTERWECHSEL_ABLUFT" }}
+  FILTERWECHSEL_ZULUFT:                !include { file: templates/wp_binary.yaml, vars: { name: "FILTERWECHSEL_ZULUFT" }}
+  AUFHEIZPROGRAMM_AKTIV:               !include { file: templates/wp_binary.yaml, vars: { name: "AUFHEIZPROGRAMM_AKTIV" }}
+  SOMMERBETRIEB_AKTIV:                 !include { file: templates/wp_binary.yaml, vars: { name: "SOMMERBETRIEB_AKTIV" }}
+  OFEN_KAMIN_AKTIV:                    !include { file: templates/wp_binary.yaml, vars: { name: "OFEN_KAMIN_AKTIV" }}
+
+  SPEICHERSOLLTEMP_TAG:                !include { file: templates/wp_temperature.yaml, vars: { property: "SPEICHERSOLLTEMP_TAG"   , writable: "true" }}
+  SPEICHERSOLLTEMP_NACHT:              !include { file: templates/wp_temperature.yaml, vars: { property: "SPEICHERSOLLTEMP_NACHT" , writable: "true" }}
+  SPEICHERSOLLTEMP_HAND:               !include { file: templates/wp_temperature.yaml, vars: { property: "SPEICHERSOLLTEMP_HAND"  , writable: "true" }}
+  SAMMLERISTTEMP:                      !include { file: templates/wp_temperature.yaml, vars: { property: "SAMMLERISTTEMP"         , update_interval: $interval_medium }}
+  RAUMSOLLTEMP_TAG:                    !include { file: templates/wp_temperature.yaml, vars: { property: "RAUMSOLLTEMP_TAG"       , target: "HK1" , writable: "true" }}
+  RAUMSOLLTEMP_NACHT:                  !include { file: templates/wp_temperature.yaml, vars: { property: "RAUMSOLLTEMP_NACHT"     , target: "HK1" , writable: "true" }}
+  VERDAMPFERTEMP:                      !include { file: templates/wp_temperature.yaml, vars: { property: "VERDAMPFERTEMP"         , update_interval: $interval_slow }}
+  HEISSGAS_TEMP:                       !include { file: templates/wp_temperature.yaml, vars: { property: "HEISSGAS_TEMP"          , update_interval: $interval_slow }}
+  VERFLUESSIGER_TEMP:                  !include { file: templates/wp_temperature.yaml, vars: { property: "VERFLUESSIGER_TEMP"     , update_interval: $interval_slow }}
+
+  LUEFT_STUFE_TAG:                     !include { file: templates/wp_ventilation.yaml, vars: { property: "LUEFT_STUFE_TAG" }}
+  LUEFT_STUFE_NACHT:                   !include { file: templates/wp_ventilation.yaml, vars: { property: "LUEFT_STUFE_NACHT" }}
+  LUEFT_STUFE_PARTY:                   !include { file: templates/wp_ventilation.yaml, vars: { property: "LUEFT_STUFE_PARTY" }}
+  LUEFT_STUFE_BEREITSCHAFT:            !include { file: templates/wp_ventilation.yaml, vars: { property: "LUEFT_STUFE_BEREITSCHAFT" }}
+  LUEFT_STUFE_HAND:                    !include { file: templates/wp_ventilation.yaml, vars: { property: "LUEFT_STUFE_HAND" }}
+
+  ABLUFTFEUCHTE:                       !include { file: templates/wp_generic.yaml, vars: { property: "ABLUFTFEUCHTE"             , update_interval: $interval_very_slow       , unit: "%"    , icon: "mdi:water-percent"}}
+  HEIZ_KUEHL_LEISTUNG:                 !include { file: templates/wp_generic.yaml, vars: { property: "HEIZ_KUEHL_LEISTUNG"       , update_interval: $interval_medium          , unit: "kW"   , icon: "mdi:home-lightning-bolt-outline", accuracy_decimals: "2" }}
+  ABLUFT_IST:                          !include { file: templates/wp_generic.yaml, vars: { property: "ABLUFT_IST"                , update_interval: $interval_slow            , unit: "Hz"   , icon: "mdi:fan" }}
+  FORTLUFT_IST:                        !include { file: templates/wp_generic.yaml, vars: { property: "FORTLUFT_IST"              , update_interval: $interval_slow            , unit: "Hz"   , icon: "mdi:fan" }}
+  ZULUFT_IST:                          !include { file: templates/wp_generic.yaml, vars: { property: "ZULUFT_IST"                , update_interval: $interval_slow            , unit: "Hz"   , icon: "mdi:fan" }}
+  ABLUFT_SOLL:                         !include { file: templates/wp_generic.yaml, vars: { property: "ABLUFT_SOLL"               , update_interval: $interval_slow            , unit: "l/min", icon: "mdi:pump" }}
+  FORTLUFT_SOLL:                       !include { file: templates/wp_generic.yaml, vars: { property: "FORTLUFT_SOLL"             , update_interval: $interval_slow            , unit: "l/min", icon: "mdi:pump" }}
+  ZULUFT_SOLL:                         !include { file: templates/wp_generic.yaml, vars: { property: "ZULUFT_SOLL"               , update_interval: $interval_slow            , unit: "l/min", icon: "mdi:pump" }}
+  VOLUMENSTROM:                        !include { file: templates/wp_generic.yaml, vars: { property: "VOLUMENSTROM"              , update_interval: $interval_slow            , unit: "l/min", icon: "mdi:pump" }}
+  LAUFZEIT_VERDICHTER_HEIZEN:          !include { file: templates/wp_generic.yaml, vars: { property: "LAUFZEIT_VERDICHTER_HEIZEN", update_interval: $interval_slow            , unit: "h"    , icon: "mdi:timer-sand-complete", state_class: "total_increasing" }}
+  LAUFZEIT_VERDICHTER_WW:              !include { file: templates/wp_generic.yaml, vars: { property: "LAUFZEIT_VERDICHTER_WW"    , update_interval: $interval_slow            , unit: "h"    , icon: "mdi:timer-sand-complete", state_class: "total_increasing" }}
+  LAUFZEIT_NHZ_HEIZEN:                 !include { file: templates/wp_generic.yaml, vars: { property: "LAUFZEIT_NHZ_HEIZEN"       , update_interval: $interval_slow            , unit: "h"    , icon: "mdi:timer-sand-complete", state_class: "total_increasing" }}
+  LAUFZEIT_NHZ_WW:                     !include { file: templates/wp_generic.yaml, vars: { property: "LAUFZEIT_NHZ_WW"           , update_interval: $interval_slow            , unit: "h"    , icon: "mdi:timer-sand-complete", state_class: "total_increasing" }}
+  LAUFZEIT_FILTER_TAGE:                !include { file: templates/wp_generic.yaml, vars: { property: "LAUFZEIT_FILTER_TAGE"      , update_interval: $interval_once_in_a_while , unit: "d"    , icon: "mdi:air-filter" }}
+  DRUCK_HEIZKREIS:                     !include { file: templates/wp_generic.yaml, vars: { property: "DRUCK_HEIZKREIS"           , update_interval: $interval_slow            , unit: "bar"  , icon: "mdi:gauge", accuracy_decimals: "1" }}
+  DRUCK_HOCHDRUCK:                     !include { file: templates/wp_generic.yaml, vars: { property: "DRUCK_HOCHDRUCK"           , update_interval: $interval_slow            , unit: "bar"  , icon: "mdi:gauge", accuracy_decimals: "2" }}
+  DRUCK_NIEDERDRUCK:                   !include { file: templates/wp_generic.yaml, vars: { property: "DRUCK_NIEDERDRUCK"         , update_interval: $interval_slow            , unit: "bar"  , icon: "mdi:gauge", accuracy_decimals: "2" }}
+  FIRMWARE_VERSION:                    !include { file: templates/wp_generic.yaml, vars: { property: "FIRMWARE_VERSION"          , icon: "mdi:code-block-tags"              , accuracy_decimals: "2" }}
+  AKTIVE_HEIZSTUFEN:                   !include { file: templates/wp_generic.yaml, vars: { property: "AKTIVE_HEIZSTUFEN"         , update_interval: $interval_medium                         , icon: "mdi:heat-pump-outline" }}
+
+  FUSSPUNKT_HK1:                       !include { file: templates/wp_number.yaml, vars: { property: "FUSSPUNKT_HK1"              , min: "0"     , max: "20", step: "0.1" , unit: "°C", icon: "mdi:temperature-celsius" , target: "HK1", accuracy_decimals: "1" }}
+  NE_STUFE_WW:                         !include { file: templates/wp_number.yaml, vars: { property: "NE_STUFE_WW"                , min: "0"     , max: "3"  }}
+  PUMPENDREHZAHL_HEIZEN:               !include { file: templates/wp_number.yaml, vars: { property: "PUMPENDREHZAHL_HEIZEN"      , min: "40"    , max: "100", step: "0.1", unit: "%" }}
+  PUMPENDREHZAHL_WW:                   !include { file: templates/wp_number.yaml, vars: { property: "PUMPENDREHZAHL_WW"          , min: "40"    , max: "100", step: "0.1", unit: "%" }}
+  HYSTERESE_WW:                        !include { file: templates/wp_number.yaml, vars: { property: "HYSTERESE_WW"               , min: "2.0"   , max: "10.0" , step: "0.1" , unit: "°C" }}
+  LUEFT_ZULUFT_STUFE1:                 !include { file: templates/wp_number.yaml, vars: { property: "LUEFT_ZULUFT_STUFE1"        , min: "10.0"  , max: "300.0", unit: "m³/h", icon: "mdi:air-filter" }}
+  LUEFT_ZULUFT_STUFE2:                 !include { file: templates/wp_number.yaml, vars: { property: "LUEFT_ZULUFT_STUFE2"        , min: "80.0"  , max: "300.0", unit: "m³/h", icon: "mdi:air-filter" }}
+  LUEFT_ZULUFT_STUFE3:                 !include { file: templates/wp_number.yaml, vars: { property: "LUEFT_ZULUFT_STUFE3"        , min: "80.0"  , max: "300.0", unit: "m³/h", icon: "mdi:air-filter" }}
+  LUEFT_ABLUFT_STUFE1:                 !include { file: templates/wp_number.yaml, vars: { property: "LUEFT_ABLUFT_STUFE1"        , min: "10.0"  , max: "300.0", unit: "m³/h", icon: "mdi:air-filter" }}
+  LUEFT_ABLUFT_STUFE2:                 !include { file: templates/wp_number.yaml, vars: { property: "LUEFT_ABLUFT_STUFE2"        , min: "80.0"  , max: "300.0", unit: "m³/h", icon: "mdi:air-filter" }}
+  LUEFT_ABLUFT_STUFE3:                 !include { file: templates/wp_number.yaml, vars: { property: "LUEFT_ABLUFT_STUFE3"        , min: "80.0"  , max: "300.0", unit: "m³/h", icon: "mdi:air-filter" }}
+  SOMMERBETRIEB_TEMP:                  !include { file: templates/wp_number.yaml, vars: { property: "SOMMERBETRIEB_TEMP"         , min: "10.0"  , max: "25.0" , step: "0.5" , unit: "°C", icon: "mdi:sun-thermometer" }}
+  ANTILEGIONELLEN:                     !include { file: templates/wp_number.yaml, vars: { property: "ANTILEGIONELLEN"            , min: "1.0"   , max: "30.0" , step: "1.0" , unit: "d" , icon: "mdi:bacteria" }}
+  WW_TEMP_LEGIONELLEN:                 !include { file: templates/wp_number.yaml, vars: { property: "WW_TEMP_LEGIONELLEN"        , min: "10.0"  , max: "65.0" , step: "0.1" , unit: "°C", icon: "mdi:temperature-celsius" }}
+  SOLLWERT_MAX_HK1:                    !include { file: templates/wp_number.yaml, vars: { property: "SOLLWERT_MAX_HK1"           , min: "10.0"  , max: "65.0" , step: "0.1" , unit: "°C", icon: "mdi:temperature-celsius" , target: "HK1", accuracy_decimals: "1" }}
+  SOLLWERT_MIN_HK1:                    !include { file: templates/wp_number.yaml, vars: { property: "SOLLWERT_MIN_HK1"           , min: "0.0"   , max: "40.0" , step: "0.1" , unit: "°C", icon: "mdi:temperature-celsius" , target: "HK1", accuracy_decimals: "1" }}
+  ANTEIL_VORLAUF_HK1:                  !include { file: templates/wp_number.yaml, vars: { property: "ANTEIL_VORLAUF_HK1"         , min: "0.0"   , max: "100.0", unit: "%" , icon: "mdi:percent-box"         , target: "HK1" }}
+  PUMPENZYKLEN_AUSSENTEMP_MIN:         !include { file: templates/wp_number.yaml, vars: { property: "PUMPENZYKLEN_AUSSENTEMP_MIN", min: "0.0"   , max: "25.0" , unit: "°C", icon: "mdi:temperature-celsius" }}
+  PUMPENZYKLEN_AUSSENTEMP_MAX:         !include { file: templates/wp_number.yaml, vars: { property: "PUMPENZYKLEN_AUSSENTEMP_MAX", min: "0.0"   , max: "20.0" , unit: "°C", icon: "mdi:temperature-celsius" }}
+  TEMP_FREIGABE_NE:                    !include { file: templates/wp_number.yaml, vars: { property: "TEMP_FREIGABE_NE"           , min: "-20.0" , max: "10.0" , step: "0.5" , unit: "°C" , icon: "mdi:thermometer-lines" }}
+
+  WAERMEERTRAG_RUECKGE_TAG_SUMME_KWH:  !include { file: templates/wp_daily_energy_combined.yaml, vars: { sensor_name: "WAERMEERTRAG_RUECKGE_TAG_SUMME_KWH" , property_wh: "WAERMEERTRAG_RUECKGE_TAG_WH"  , property_kwh: "WAERMEERTRAG_RUECKGE_TAG_KWH"  }}
+
+  WAERMEERTRAG_RUECKGE_SUMME_MWH:      !include { file: templates/wp_generic_combined.yaml, vars: { sensor_name: "WAERMEERTRAG_RUECKGE_SUMME_MWH"  , scaled_property: "WAERMEERTRAG_RUECKGE_SUM_KWH" , property: "WAERMEERTRAG_RUECKGE_SUM_MWH" , unit: "MWh", accuracy_decimals: "3", icon: "mdi:fire", state_class: "total_increasing" }}
+  WAERMEERTRAG_2WE_WW_SUMME_MWH:       !include { file: templates/wp_generic_combined.yaml, vars: { sensor_name: "WAERMEERTRAG_2WE_WW_SUMME_MWH"   , scaled_property: "WAERMEERTRAG_2WE_WW_SUM_KWH"  , property: "WAERMEERTRAG_2WE_WW_SUM_MWH"  , unit: "MWh", accuracy_decimals: "3", icon: "mdi:fire", state_class: "total_increasing" }}
+  WAERMEERTRAG_2WE_HEIZ_SUMME_MWH:     !include { file: templates/wp_generic_combined.yaml, vars: { sensor_name: "WAERMEERTRAG_2WE_HEIZ_SUMME_MWH" , scaled_property: "WAERMEERTRAG_2WE_HEIZ_SUM_KWH", property: "WAERMEERTRAG_2WE_HEIZ_SUM_MWH", unit: "MWh", accuracy_decimals: "3", icon: "mdi:fire", state_class: "total_increasing" }}
+
+  WARMWASSER_ECO:                      !include { file: templates/wp_switch.yaml, vars: { property: "WARMWASSER_ECO", icon: "mdi:sprout" }}
+
+  PASSIVKUEHLUNG:                      !include { file: templates/wp_select.yaml, vars: { property: PASSIVKUEHLUNG, mapper_func_set: getPassivkuehlungId, mapper_func_get: getPassivkuehlung, options: ["Aus", "Ablüften", "Zulüften", "Bypass", "Sommerkassette", "Unbekannt"] }}
+  PROGRAMMSCHALTER:                    !include { file: templates/wp_select.yaml, vars: { property: PROGRAMMSCHALTER, mapper_func_set: getBetriebsartId, mapper_func_get: getBetriebsart, options: ["Notbetrieb", "Bereitschaft", "Automatik", "Tagbetrieb", "Absenkbetrieb", "Warmwasser", "Handbetrieb", "Unbekannt"] }}

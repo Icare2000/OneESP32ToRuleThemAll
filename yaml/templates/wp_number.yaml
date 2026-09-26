@@ -1,0 +1,72 @@
+defaults:
+  target: "Kessel"
+  step: "1"
+  min: "0"
+  max: "100"
+  icon: "mdi:valve"
+  unit: ""
+  exposed: "true"
+
+number:
+  - platform: template
+    name: ${property}
+    id: ${property}
+    icon: ${icon}
+    unit_of_measurement: ${unit}
+    min_value: ${min}
+    max_value: ${max}
+    step: ${step}
+    initial_value: NAN
+    optimistic: true
+    set_action:
+      - lambda: |-
+          ESP_LOGI("Number", "Setting new value %f for %s", x, std::string(Property::k${property}.name).c_str());
+          if(x != NAN) {
+            const auto type = Property::k${property}.type;
+            const auto value = GetRawByType(SimpleVariant(x),type);
+            if(value.has_value()) {
+                queueTransmission(CanNode::${target}, Property::k${property}, *value);
+            } else {
+              ESP_LOGE("Number", "Setting new value failed!");
+            }
+          }
+    on_value:
+      then:
+        - if:
+            condition:
+              lambda: |-
+                #if defined(ANALYTICS)
+                  return getWhitelistedEntities().contains(id(${property}));
+                #else
+                  return false;
+                #endif
+            then:
+              - script.execute:
+                  id: mqtt_push_event
+                  suffix: ${property}
+                  payload: !lambda 'return to_string(x);'
+
+esphome:
+  on_boot:
+    - priority: -50
+      then:
+        - lambda: |-
+            CallbackHandler::instance().addCallbacks({{CanNode::${target},Property::k${property}},
+                                                      {CanNode::Heizmodul,Property::k${property}}},[](const SimpleVariant& value){
+                const auto newValue{value.get<float>()};
+                auto property{id(${property})};
+                if(!std::is_eq(property->state <=> newValue)) {
+                  property->publish_state(newValue);
+                }
+            });
+
+            #if defined(ANALYTICS)
+              if(${exposed}) {
+                getWhitelistedEntities().insert(id(${property}));
+              }
+            #endif
+    - priority: -100.0
+      then:
+        - delay: 250ms
+        - lambda: |-
+            queueRequest(CanNode::${target}, Property::k${property});
