@@ -80,5 +80,7 @@ packages:
   VERDICHTER_STILLSTAND:    !include { file: templates/wp_generic.yaml, vars: { property: "VERDICHTER_STILLSTAND"   , update_interval: "${interval_once_in_a_while}", unit: "min" }}
   REGLERDYNAMIK:            !include { file: templates/wp_generic.yaml, vars: { property: "REGLERDYNAMIK"           , update_interval: "${interval_once_in_a_while}" }}
   KUEHLEN_EINGESCHALTET:    !include { file: templates/wp_generic.yaml, vars: { property: "KUEHLEN_EINGESCHALTET"   , update_interval: "${interval_slow}" }}
+  KUEHLMODE:                !include { file: templates/wp_generic.yaml, vars: { property: "KUEHLMODE"               , update_interval: "${interval_slow}" }}
+  TAUPUNKT_HK1:             !include { file: templates/wp_temperature.yaml, vars: { property: "TAUPUNKT_HK1"     , update_interval: "${interval_medium}" }}
 
   PROGRAMMSCHALTER:         !include { file: templates/wp_select.yaml, vars: { property: PROGRAMMSCHALTER, mapper_func_set: getBetriebsartId, mapper_func_get: getBetriebsart, options: ["Notbetrieb", "Bereitschaft", "Programm", "Komfort", "Eco", "Warmwasser", "Unbekannt"] }}

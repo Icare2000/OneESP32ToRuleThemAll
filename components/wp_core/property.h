@@ -246,7 +246,9 @@ struct Property : public oe32trta::detail::Property {
     PROPERTY(HKSOLLTEMP, 0x01d7, Type::et_dec_val);
     PROPERTY(HDSENSORMAX, 0x01a2, Type::et_dec_val);
     PROPERTY(QUELLENTEMP_MIN, 0x01b0, Type::et_dec_val);
+    PROPERTY(TAUPUNKT_HK1, 0x0264, Type::et_dec_val);
     PROPERTY(DRUCK_HOCHDRUCK, 0x0268, Type::et_cent_val);
+    PROPERTY(KUEHLMODE, 0x0287, Type::et_bool);
     PROPERTY(HKISTTEMP, 0x02ca, Type::et_dec_val);
     PROPERTY(VOLUMENSTROM, 0x0673, Type::et_cent_val);
     PROPERTY(DRUCK_HEIZKREIS, 0x0674, Type::et_cent_val);

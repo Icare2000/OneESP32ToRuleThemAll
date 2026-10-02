@@ -33,7 +33,7 @@ packages:
   SPEICHERISTTEMP:                   !include { file: templates/wp_temperature.yaml, vars: { property: "SPEICHERISTTEMP"          , update_interval: $interval_medium }}
   AUSSENTEMP:                        !include { file: templates/wp_temperature.yaml, vars: { property: "AUSSENTEMP"       }}
   RUECKLAUFISTTEMP:                  !include { file: templates/wp_temperature.yaml, vars: { property: "RUECKLAUFISTTEMP"         , update_interval: $interval_medium }}
-  VORLAUFISTTEMP:                    !include { file: templates/wp_temperature.yaml, vars: { property: "VORLAUFISTTEMP"           , update_interval: $interval_medium, target: "HK1" }}
+  VORLAUFISTTEMP:                    !include { file: templates/wp_temperature.yaml, vars: { property: "VORLAUFISTTEMP"           , update_interval: $interval_medium, target: "Kessel" }}
   RAUMISTTEMP:                       !include { file: templates/wp_temperature.yaml, vars: { property: "RAUMISTTEMP"              , target: "HK1" }}
   VERSTELLTE_RAUMSOLLTEMP:           !include { file: templates/wp_temperature.yaml, vars: { property: "VERSTELLTE_RAUMSOLLTEMP"  , target: "HK1" }}
   VORLAUFSOLLTEMP:                   !include { file: templates/wp_temperature.yaml, vars: { property: "VORLAUFSOLLTEMP"          , target: "HK1" }}

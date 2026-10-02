@@ -28,7 +28,16 @@ esphome:
       then:
         - lambda: |-
             CallbackHandler::instance().addCallback({CanNode::${target},Property::k${property}},[](const SimpleVariant& value){
-                const auto newValue{${scaler} * value.get<float>()};
+                // bool properties (e.g. EINPHASIGER_BETRIEB) would throw on get<float>() and abort (#376)
+                float rawValue{0.0f};
+                if(value.holds_alternative<float>()) {
+                  rawValue = value.get<float>();
+                } else if(value.holds_alternative<bool>()) {
+                  rawValue = value.get<bool>() ? 1.0f : 0.0f;
+                } else {
+                  return;
+                }
+                const auto newValue{${scaler} * rawValue};
                 auto property{id(${property}${name_suffix})};
                 if(!std::is_eq(property->state <=> newValue)) {
                   property->publish_state(newValue);
