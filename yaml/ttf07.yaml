@@ -117,4 +117,13 @@ packages:
   WAERMEERTRAG_2WE_WW_SUMME_MWH:       !include { file: templates/wp_generic_combined.yaml, vars: { sensor_name: "WAERMEERTRAG_2WE_WW_SUMME_MWH"   , scaled_property: "WAERMEERTRAG_2WE_WW_SUM_KWH"  , property: "WAERMEERTRAG_2WE_WW_SUM_MWH"  , unit: "MWh", accuracy_decimals: "3", icon: "mdi:fire", state_class: "total_increasing" }}
   WAERMEERTRAG_2WE_HEIZ_SUMME_MWH:     !include { file: templates/wp_generic_combined.yaml, vars: { sensor_name: "WAERMEERTRAG_2WE_HEIZ_SUMME_MWH" , scaled_property: "WAERMEERTRAG_2WE_HEIZ_SUM_KWH", property: "WAERMEERTRAG_2WE_HEIZ_SUM_MWH", unit: "MWh", accuracy_decimals: "3", icon: "mdi:fire", state_class: "total_increasing" }}
 
+  # listen-only: answers of the heat pump unit (MFG, 0x700) to the WPM3i
+  VORLAUFISTTEMP_WP:   !include { file: templates/wp_listen.yaml, vars: { property: "VORLAUFISTTEMP_WP"   }}
+  RUECKLAUFISTTEMP_WP: !include { file: templates/wp_listen.yaml, vars: { property: "RUECKLAUFISTTEMP_WP" }}
+  VORLAUFISTTEMP_NHZ:  !include { file: templates/wp_listen.yaml, vars: { property: "VORLAUFISTTEMP_NHZ"  }}
+  FROSTSCHUTZ:         !include { file: templates/wp_listen.yaml, vars: { property: "FROSTSCHUTZ"         }}
+  MFG_FE09:            !include { file: templates/wp_listen.yaml, vars: { property: "MFG_FE09"            }}
+  MFG_FE0A:            !include { file: templates/wp_listen.yaml, vars: { property: "MFG_FE0A"            }}
+  MFG_FE4C:            !include { file: templates/wp_listen.yaml, vars: { property: "MFG_FE4C", unit: "", device_class: "", icon: "mdi:help-circle-outline", accuracy_decimals: "0" }}
+
   PROGRAMMSCHALTER:         !include { file: templates/wp_select.yaml, vars: { property: PROGRAMMSCHALTER, mapper_func_set: getBetriebsartId, mapper_func_get: getBetriebsart, options: ["Notbetrieb", "Bereitschaft", "Programm", "Komfort", "Eco", "Warmwasser", "Unbekannt"] }}

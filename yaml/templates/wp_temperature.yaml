@@ -27,6 +27,10 @@ esphome:
         - lambda: |-
             auto callback= [](const SimpleVariant& value){
                 const auto newValue{value.get<float>()};
+                // 0x8000 means "not available" and decodes to -3276.8
+                if(newValue <= -3276.0f) {
+                  return;
+                }
                 auto property{id(${property}${name_suffix})};
                 if(!std::is_eq(property->state <=> newValue)) {
                   property->publish_state(newValue);

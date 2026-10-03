@@ -327,6 +327,14 @@ struct Property : public oe32trta::detail::Property {
     PROPERTY(QUELLENMEDIUM, 0xfdae, Type::et_byte);
     PROPERTY(REGLERDYNAMIK, 0xfdb0, Type::et_little_endian);
     PROPERTY(VERDICHTER_STILLSTAND, 0xfdb1, Type::et_little_endian);
+    // answered by the heat pump unit (MFG, 0x700) to the WPM3i (0x480) every 5 s
+    PROPERTY(VORLAUFISTTEMP_WP, 0xfdf3, Type::et_dec_val);
+    PROPERTY(RUECKLAUFISTTEMP_WP, 0xfdf4, Type::et_dec_val);
+    PROPERTY(VORLAUFISTTEMP_NHZ, 0xfdf5, Type::et_dec_val);
+    PROPERTY(FROSTSCHUTZ, 0xfe07, Type::et_dec_val);
+    PROPERTY(MFG_FE09, 0xfe09, Type::et_dec_val);
+    PROPERTY(MFG_FE0A, 0xfe0a, Type::et_dec_val);
+    PROPERTY(MFG_FE4C, 0xfe4c, Type::et_default);
 #endif
 
 // =======================================================================

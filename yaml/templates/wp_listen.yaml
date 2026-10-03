@@ -1,0 +1,47 @@
+defaults:
+  target: "MFG"
+  unit: "°C"
+  device_class: "temperature"
+  icon: "mdi:thermometer-lines"
+  accuracy_decimals: "1"
+  name_suffix: ""
+  exposed: "true"
+
+# Listen-only sensor: never sends a request, only catches answers that
+# another node (e.g. the WPM3i polling the heat pump unit) puts on the bus.
+sensor:
+  - platform: template
+    name: ${property}${name_suffix}
+    id: ${property}${name_suffix}
+    unit_of_measurement: ${unit}
+    device_class: ${device_class}
+    icon: ${icon}
+    state_class: "measurement"
+    accuracy_decimals: ${accuracy_decimals}
+    update_interval: never
+
+esphome:
+  on_boot:
+    - priority: -50
+      then:
+        - lambda: |-
+            CallbackHandler::instance().addCallback({CanNode::${target},Property::k${property}},[](const SimpleVariant& value){
+                if(!value.holds_alternative<float>()) {
+                  return;
+                }
+                const auto newValue{value.get<float>()};
+                // 0x8000 means "not available"
+                if(newValue <= -3276.0f || newValue == 32768.0f) {
+                  return;
+                }
+                auto property{id(${property}${name_suffix})};
+                if(!std::is_eq(property->state <=> newValue)) {
+                  property->publish_state(newValue);
+                }
+            });
+
+            #if defined(ANALYTICS)
+              if(${exposed}) {
+                getWhitelistedEntities().insert(id(${property}${name_suffix}));
+              }
+            #endif
