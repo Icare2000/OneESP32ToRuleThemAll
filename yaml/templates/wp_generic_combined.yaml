@@ -4,6 +4,7 @@ defaults:
   update_interval: $interval_very_slow
   exposed: "true"
   state_class: "measurement"
+  device_class: ""
 
 sensor:
   - platform: template
@@ -26,6 +27,7 @@ sensor:
     icon: ${icon}
     accuracy_decimals: ${accuracy_decimals}
     update_interval: ${update_interval}
+    device_class: ${device_class}
     state_class: "total_increasing"
     lambda: |-
         queueRequest(CanNode::${target}, Property::k${property});
