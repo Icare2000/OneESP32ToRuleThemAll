@@ -319,6 +319,9 @@ struct Property : public oe32trta::detail::Property {
     PROPERTY(QUELLENMEDIUM, 0xfdae, Type::et_byte);
     PROPERTY(REGLERDYNAMIK, 0xfdb0, Type::et_little_endian);
     PROPERTY(VERDICHTER_STILLSTAND, 0xfdb1, Type::et_little_endian);
+    // WPM3i manager (0x480), ripple-control block (EVU); meaning of the values still to be confirmed
+    PROPERTY(EVU_SPERRE_AKTIV, 0x0074);
+    PROPERTY(WP_EVU, 0xfdac, Type::et_little_endian);
     // answered by the heat pump unit (MFG, 0x700) to the WPM3i (0x480) every 5 s
     PROPERTY(VORLAUFISTTEMP_WP, 0xfdf3, Type::et_dec_val);
     PROPERTY(RUECKLAUFISTTEMP_WP, 0xfdf4, Type::et_dec_val);

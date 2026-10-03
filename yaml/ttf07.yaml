@@ -113,6 +113,11 @@ packages:
   W_WASSERPROG_1_SO: !include { file: templates/wp_time_program.yaml, vars: { program: "W_WASSERPROG_1", day: "SO" }}
 
 
+  # WPM3i manager (0x480): ripple-control (EVU) block, polled every minute
+  MANAGER:           !include { file: templates/wp_can_id.yaml, vars: { can_node: "Manager", can_id: "0x480" }}
+  WP_EVU:            !include { file: templates/wp_generic.yaml, vars: { property: "WP_EVU"          , target: "Manager", update_interval: "${interval_medium}", icon: "mdi:transmission-tower-off" }}
+  EVU_SPERRE_AKTIV:  !include { file: templates/wp_generic.yaml, vars: { property: "EVU_SPERRE_AKTIV", target: "Manager", update_interval: "${interval_medium}", icon: "mdi:transmission-tower-off" }}
+
   # listen-only: answers of the heat pump unit (MFG, 0x700) to the WPM3i
   VORLAUFISTTEMP_WP:   !include { file: templates/wp_listen.yaml, vars: { property: "VORLAUFISTTEMP_WP"   }}
   RUECKLAUFISTTEMP_WP: !include { file: templates/wp_listen.yaml, vars: { property: "RUECKLAUFISTTEMP_WP" }}
