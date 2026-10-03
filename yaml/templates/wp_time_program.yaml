@@ -1,0 +1,73 @@
+defaults:
+  target: "Kessel"
+  update_interval: $interval_once_in_a_while
+  icon: "mdi:calendar-clock"
+
+# One text sensor per program and day, joining the three switching pairs,
+# e.g. "03:00-06:00, 17:00-20:00". Unused pairs (0x8080) are left out.
+globals:
+  - id: g${program}_${day}_1
+    type: std::string
+    initial_value: '""'
+  - id: g${program}_${day}_2
+    type: std::string
+    initial_value: '""'
+  - id: g${program}_${day}_3
+    type: std::string
+    initial_value: '""'
+
+text_sensor:
+  - platform: template
+    name: ${program}_${day}
+    id: ${program}_${day}
+    icon: ${icon}
+    update_interval: ${update_interval}
+    lambda: |-
+      queueRequest(CanNode::${target}, Property::k${program}_${day});
+      queueRequest(CanNode::${target}, Property::k${program}_${day}_SCHALT_2);
+      queueRequest(CanNode::${target}, Property::k${program}_${day}_SCHALT_3);
+      return {};
+
+esphome:
+  on_boot:
+    - priority: -50
+      then:
+        - lambda: |-
+            const auto publish = []() {
+              std::string joined;
+              for (const auto* pair : {&id(g${program}_${day}_1), &id(g${program}_${day}_2), &id(g${program}_${day}_3)}) {
+                if (pair->empty() || pair->find('?') != std::string::npos) {
+                  continue;
+                }
+                if (!joined.empty()) {
+                  joined += ", ";
+                }
+                joined += *pair;
+              }
+              id(${program}_${day}).publish_state(joined.empty() ? "-" : joined);
+            };
+            CallbackHandler::instance().addCallback({CanNode::${target}, Property::k${program}_${day}}, [publish](const SimpleVariant& value) {
+              if (value.holds_alternative<std::string>()) {
+                id(g${program}_${day}_1) = value.get<std::string>();
+                publish();
+              }
+            });
+            CallbackHandler::instance().addCallback({CanNode::${target}, Property::k${program}_${day}_SCHALT_2}, [publish](const SimpleVariant& value) {
+              if (value.holds_alternative<std::string>()) {
+                id(g${program}_${day}_2) = value.get<std::string>();
+                publish();
+              }
+            });
+            CallbackHandler::instance().addCallback({CanNode::${target}, Property::k${program}_${day}_SCHALT_3}, [publish](const SimpleVariant& value) {
+              if (value.holds_alternative<std::string>()) {
+                id(g${program}_${day}_3) = value.get<std::string>();
+                publish();
+              }
+            });
+    - priority: -100.0
+      then:
+        - delay: 2s
+        - lambda: |-
+            queueRequest(CanNode::${target}, Property::k${program}_${day});
+            queueRequest(CanNode::${target}, Property::k${program}_${day}_SCHALT_2);
+            queueRequest(CanNode::${target}, Property::k${program}_${day}_SCHALT_3);

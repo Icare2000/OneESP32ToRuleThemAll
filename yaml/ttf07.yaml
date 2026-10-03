@@ -83,6 +83,22 @@ packages:
   KUEHLMODE:                !include { file: templates/wp_generic.yaml, vars: { property: "KUEHLMODE"               , update_interval: "${interval_slow}" }}
   TAUPUNKT_HK1:             !include { file: templates/wp_temperature.yaml, vars: { property: "TAUPUNKT_HK1"     , update_interval: "${interval_medium}" }}
 
+  # Zeitprogramme (lecture seule) : 3 Schaltzeitpaare pro Tag
+  HEIZPROG_1_MO: !include { file: templates/wp_time_program.yaml, vars: { program: "HEIZPROG_1", day: "MO" }}
+  HEIZPROG_1_DI: !include { file: templates/wp_time_program.yaml, vars: { program: "HEIZPROG_1", day: "DI" }}
+  HEIZPROG_1_MI: !include { file: templates/wp_time_program.yaml, vars: { program: "HEIZPROG_1", day: "MI" }}
+  HEIZPROG_1_DO: !include { file: templates/wp_time_program.yaml, vars: { program: "HEIZPROG_1", day: "DO" }}
+  HEIZPROG_1_FR: !include { file: templates/wp_time_program.yaml, vars: { program: "HEIZPROG_1", day: "FR" }}
+  HEIZPROG_1_SA: !include { file: templates/wp_time_program.yaml, vars: { program: "HEIZPROG_1", day: "SA" }}
+  HEIZPROG_1_SO: !include { file: templates/wp_time_program.yaml, vars: { program: "HEIZPROG_1", day: "SO" }}
+  W_WASSERPROG_1_MO: !include { file: templates/wp_time_program.yaml, vars: { program: "W_WASSERPROG_1", day: "MO" }}
+  W_WASSERPROG_1_DI: !include { file: templates/wp_time_program.yaml, vars: { program: "W_WASSERPROG_1", day: "DI" }}
+  W_WASSERPROG_1_MI: !include { file: templates/wp_time_program.yaml, vars: { program: "W_WASSERPROG_1", day: "MI" }}
+  W_WASSERPROG_1_DO: !include { file: templates/wp_time_program.yaml, vars: { program: "W_WASSERPROG_1", day: "DO" }}
+  W_WASSERPROG_1_FR: !include { file: templates/wp_time_program.yaml, vars: { program: "W_WASSERPROG_1", day: "FR" }}
+  W_WASSERPROG_1_SA: !include { file: templates/wp_time_program.yaml, vars: { program: "W_WASSERPROG_1", day: "SA" }}
+  W_WASSERPROG_1_SO: !include { file: templates/wp_time_program.yaml, vars: { program: "W_WASSERPROG_1", day: "SO" }}
+
   WAERMEERTRAG_2WE_WW_TAG_SUMME_KWH:   !include { file: templates/wp_daily_energy_combined.yaml, vars: { sensor_name: "WAERMEERTRAG_2WE_WW_TAG_SUMME_KWH"  , property_wh: "WAERMEERTRAG_2WE_WW_TAG_WH"   , property_kwh: "WAERMEERTRAG_2WE_WW_TAG_KWH"   }}
   WAERMEERTRAG_2WE_HEIZ_TAG_SUMME_KWH: !include { file: templates/wp_daily_energy_combined.yaml, vars: { sensor_name: "WAERMEERTRAG_2WE_HEIZ_TAG_SUMME_KWH", property_wh: "WAERMEERTRAG_2WE_HEIZ_TAG_WH" , property_kwh: "WAERMEERTRAG_2WE_HEIZ_TAG_KWH" }}
   WAERMEERTRAG_2WE_WW_SUMME_MWH:       !include { file: templates/wp_generic_combined.yaml, vars: { sensor_name: "WAERMEERTRAG_2WE_WW_SUMME_MWH"   , scaled_property: "WAERMEERTRAG_2WE_WW_SUM_KWH"  , property: "WAERMEERTRAG_2WE_WW_SUM_MWH"  , unit: "MWh", accuracy_decimals: "3", icon: "mdi:fire", state_class: "total_increasing" }}
