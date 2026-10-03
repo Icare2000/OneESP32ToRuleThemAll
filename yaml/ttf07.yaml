@@ -112,10 +112,6 @@ packages:
   W_WASSERPROG_1_SA: !include { file: templates/wp_time_program.yaml, vars: { program: "W_WASSERPROG_1", day: "SA" }}
   W_WASSERPROG_1_SO: !include { file: templates/wp_time_program.yaml, vars: { program: "W_WASSERPROG_1", day: "SO" }}
 
-  WAERMEERTRAG_2WE_WW_TAG_SUMME_KWH:   !include { file: templates/wp_daily_energy_combined.yaml, vars: { sensor_name: "WAERMEERTRAG_2WE_WW_TAG_SUMME_KWH"  , property_wh: "WAERMEERTRAG_2WE_WW_TAG_WH"   , property_kwh: "WAERMEERTRAG_2WE_WW_TAG_KWH"   }}
-  WAERMEERTRAG_2WE_HEIZ_TAG_SUMME_KWH: !include { file: templates/wp_daily_energy_combined.yaml, vars: { sensor_name: "WAERMEERTRAG_2WE_HEIZ_TAG_SUMME_KWH", property_wh: "WAERMEERTRAG_2WE_HEIZ_TAG_WH" , property_kwh: "WAERMEERTRAG_2WE_HEIZ_TAG_KWH" }}
-  WAERMEERTRAG_2WE_WW_SUMME_MWH:       !include { file: templates/wp_generic_combined.yaml, vars: { sensor_name: "WAERMEERTRAG_2WE_WW_SUMME_MWH"   , scaled_property: "WAERMEERTRAG_2WE_WW_SUM_KWH"  , property: "WAERMEERTRAG_2WE_WW_SUM_MWH"  , unit: "MWh", accuracy_decimals: "3", icon: "mdi:fire", state_class: "total_increasing", device_class: "energy" }}
-  WAERMEERTRAG_2WE_HEIZ_SUMME_MWH:     !include { file: templates/wp_generic_combined.yaml, vars: { sensor_name: "WAERMEERTRAG_2WE_HEIZ_SUMME_MWH" , scaled_property: "WAERMEERTRAG_2WE_HEIZ_SUM_KWH", property: "WAERMEERTRAG_2WE_HEIZ_SUM_MWH", unit: "MWh", accuracy_decimals: "3", icon: "mdi:fire", state_class: "total_increasing", device_class: "energy" }}
 
   # listen-only: answers of the heat pump unit (MFG, 0x700) to the WPM3i
   VORLAUFISTTEMP_WP:   !include { file: templates/wp_listen.yaml, vars: { property: "VORLAUFISTTEMP_WP"   }}
