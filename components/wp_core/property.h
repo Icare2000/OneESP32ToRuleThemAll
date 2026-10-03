@@ -203,6 +203,40 @@ struct Property : public oe32trta::detail::Property {
     PROPERTY(MOTORLEISTUNG, 0x06a0, Type::et_cent_val);
     PROPERTY(MOTORSPANNUNG, 0x06a1);
     PROPERTY(INVERTERTEMPERATUR, 0x06a2, Type::et_dec_val);
+    PROPERTY(WAERMEERTRAG_2WE_WW_TAG_WH, 0x0922);
+    PROPERTY(WAERMEERTRAG_2WE_WW_TAG_KWH, 0x0923, Type::et_double_val);
+    PROPERTY(WAERMEERTRAG_2WE_HEIZ_TAG_WH, 0x0926);
+    PROPERTY(WAERMEERTRAG_2WE_HEIZ_TAG_KWH, 0x0927, Type::et_double_val);
+    PROPERTY(LEISTUNG_AUSLEGUNG_HEIZUNG, 0xc0f1);
+    PROPERTY(ABLUFT_TAUPUNKT, 0xc0f6, Type::et_dec_val);
+    PROPERTY(LAUFZEIT_FILTER, 0xc111);
+    PROPERTY(DIFFERENZDRUCK, 0xc11e);
+#endif
+
+// =======================================================================
+// 5. THZ VARIANT SPECIFICS
+// =======================================================================
+#if defined(THZ_504)
+    PROPERTY(LAUFZEIT_VERDICHTER_KUEHLEN, 0x05a5);
+#endif
+
+#if defined(THZ_504) || defined(THZ_5_5_ECO)
+    PROPERTY(PUMPENZYKLEN_AUSSENTEMP_MIN, 0x05bb);
+    PROPERTY(PUMPENZYKLEN_AUSSENTEMP_MAX, 0x05bc);
+#endif
+
+#if defined(THZ_404) || defined(THZ_304)
+    PROPERTY(PUMPENZYKLEN_MIN_TAG, 0x05b8);
+    PROPERTY(PUMPENZYKLEN_MAX_TAG, 0x05b7);
+    PROPERTY(PUMPENZYKLEN_AUSSENTEMP_MAX, 0x05b9, Type::et_dec_val);
+    PROPERTY(PUMPENZYKLEN_AUSSENTEMP_MIN, 0x05ba, Type::et_dec_val);
+    PROPERTY(AKTIVE_HEIZSTUFEN, 0x05bb);
+#endif
+
+// =======================================================================
+// 6. TTF VARIANTS
+// =======================================================================
+#if defined(TTF_07_C)
     PROPERTY(HEIZPROG_1_MO, 0x1410, Type::et_time_domain);
     PROPERTY(HEIZPROG_1_MO_SCHALT_2, 0x1411, Type::et_time_domain);
     PROPERTY(HEIZPROG_1_MO_SCHALT_3, 0x1412, Type::et_time_domain);
@@ -245,40 +279,6 @@ struct Property : public oe32trta::detail::Property {
     PROPERTY(W_WASSERPROG_1_SO, 0x1770, Type::et_time_domain);
     PROPERTY(W_WASSERPROG_1_SO_SCHALT_2, 0x1771, Type::et_time_domain);
     PROPERTY(W_WASSERPROG_1_SO_SCHALT_3, 0x1772, Type::et_time_domain);
-    PROPERTY(WAERMEERTRAG_2WE_WW_TAG_WH, 0x0922);
-    PROPERTY(WAERMEERTRAG_2WE_WW_TAG_KWH, 0x0923, Type::et_double_val);
-    PROPERTY(WAERMEERTRAG_2WE_HEIZ_TAG_WH, 0x0926);
-    PROPERTY(WAERMEERTRAG_2WE_HEIZ_TAG_KWH, 0x0927, Type::et_double_val);
-    PROPERTY(LEISTUNG_AUSLEGUNG_HEIZUNG, 0xc0f1);
-    PROPERTY(ABLUFT_TAUPUNKT, 0xc0f6, Type::et_dec_val);
-    PROPERTY(LAUFZEIT_FILTER, 0xc111);
-    PROPERTY(DIFFERENZDRUCK, 0xc11e);
-#endif
-
-// =======================================================================
-// 5. THZ VARIANT SPECIFICS
-// =======================================================================
-#if defined(THZ_504)
-    PROPERTY(LAUFZEIT_VERDICHTER_KUEHLEN, 0x05a5);
-#endif
-
-#if defined(THZ_504) || defined(THZ_5_5_ECO)
-    PROPERTY(PUMPENZYKLEN_AUSSENTEMP_MIN, 0x05bb);
-    PROPERTY(PUMPENZYKLEN_AUSSENTEMP_MAX, 0x05bc);
-#endif
-
-#if defined(THZ_404) || defined(THZ_304)
-    PROPERTY(PUMPENZYKLEN_MIN_TAG, 0x05b8);
-    PROPERTY(PUMPENZYKLEN_MAX_TAG, 0x05b7);
-    PROPERTY(PUMPENZYKLEN_AUSSENTEMP_MAX, 0x05b9, Type::et_dec_val);
-    PROPERTY(PUMPENZYKLEN_AUSSENTEMP_MIN, 0x05ba, Type::et_dec_val);
-    PROPERTY(AKTIVE_HEIZSTUFEN, 0x05bb);
-#endif
-
-// =======================================================================
-// 6. TTF VARIANTS
-// =======================================================================
-#if defined(TTF_07_C)
     PROPERTY(RAUMSOLLTEMP_I, 0x0005, Type::et_dec_val);
     PROPERTY(RAUMSOLLTEMP_II, 0x0006, Type::et_dec_val);
     PROPERTY(RAUMSOLLTEMP_III, 0x0007, Type::et_dec_val);
