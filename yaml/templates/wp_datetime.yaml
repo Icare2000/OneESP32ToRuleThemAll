@@ -56,6 +56,17 @@ esphome:
             queueRequest(CanNode::Kessel, Property::kSTUNDE);
             queueRequest(CanNode::Kessel, Property::kMINUTE);
 
+# Re-read the heat pump clock regularly, otherwise the value only changes at boot
+interval:
+  - interval: $interval_slow
+    then:
+      - lambda: |-
+          queueRequest(CanNode::Kessel, Property::kJAHR);
+          queueRequest(CanNode::Kessel, Property::kMONAT);
+          queueRequest(CanNode::Kessel, Property::kTAG);
+          queueRequest(CanNode::Kessel, Property::kSTUNDE);
+          queueRequest(CanNode::Kessel, Property::kMINUTE);
+
 text_sensor:
   - platform: template
     name: "HEATPUMP_DATETIME"

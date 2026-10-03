@@ -100,6 +100,10 @@ button:
       then:
         - lambda: |-
             syncTime(homeassistant_time);
+        - delay: 10s
+        - lambda: |-
+            queueRequest(CanNode::Kessel, Property::kSTUNDE);
+            queueRequest(CanNode::Kessel, Property::kMINUTE);
 
 #########################################
 #                                       #

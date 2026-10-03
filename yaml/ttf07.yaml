@@ -83,6 +83,19 @@ packages:
   KUEHLMODE:                !include { file: templates/wp_generic.yaml, vars: { property: "KUEHLMODE"               , update_interval: "${interval_slow}" }}
   TAUPUNKT_HK1:             !include { file: templates/wp_temperature.yaml, vars: { property: "TAUPUNKT_HK1"     , update_interval: "${interval_medium}" }}
 
+  # Consignes et reglages (lecture seule)
+  WW_KOMF_TEMP:             !include { file: templates/wp_temperature.yaml, vars: { property: "WW_KOMF_TEMP"      , update_interval: "${interval_slow}" }}
+  WW_ECO_TEMP:              !include { file: templates/wp_temperature.yaml, vars: { property: "WW_ECO_TEMP"       , update_interval: "${interval_slow}" }}
+  RAUMSOLLTEMP_I:           !include { file: templates/wp_temperature.yaml, vars: { property: "RAUMSOLLTEMP_I"    , update_interval: "${interval_slow}" }}
+  RAUMSOLLTEMP_II:          !include { file: templates/wp_temperature.yaml, vars: { property: "RAUMSOLLTEMP_II"   , update_interval: "${interval_slow}" }}
+  RAUMSOLLTEMP_III:         !include { file: templates/wp_temperature.yaml, vars: { property: "RAUMSOLLTEMP_III"  , update_interval: "${interval_slow}" }}
+  RAUMSOLLTEMP_NACHT:       !include { file: templates/wp_temperature.yaml, vars: { property: "RAUMSOLLTEMP_NACHT", update_interval: "${interval_slow}" }}
+  SOMMERBETRIEB:            !include { file: templates/wp_generic.yaml, vars: { property: "SOMMERBETRIEB"     , update_interval: "${interval_slow}", icon: "mdi:weather-sunny" }}
+  WW_ECO:                   !include { file: templates/wp_generic.yaml, vars: { property: "WW_ECO"            , update_interval: "${interval_once_in_a_while}", icon: "mdi:leaf" }}
+  ANTILEGIONELLEN:          !include { file: templates/wp_generic.yaml, vars: { property: "ANTILEGIONELLEN"   , update_interval: "${interval_once_in_a_while}", icon: "mdi:bacteria" }}
+  LZ_VERD_1_HEIZBETRIEB:    !include { file: templates/wp_generic.yaml, vars: { property: "LZ_VERD_1_HEIZBETRIEB", update_interval: "${interval_once_in_a_while}", unit: "h", icon: "mdi:timer", state_class: "total_increasing" }}
+  LZ_VERD_1_WW_BETRIEB:     !include { file: templates/wp_generic.yaml, vars: { property: "LZ_VERD_1_WW_BETRIEB" , update_interval: "${interval_once_in_a_while}", unit: "h", icon: "mdi:timer", state_class: "total_increasing" }}
+
   # Zeitprogramme (lecture seule) : 3 Schaltzeitpaare pro Tag
   HEIZPROG_1_MO: !include { file: templates/wp_time_program.yaml, vars: { program: "HEIZPROG_1", day: "MO" }}
   HEIZPROG_1_DI: !include { file: templates/wp_time_program.yaml, vars: { program: "HEIZPROG_1", day: "DI" }}

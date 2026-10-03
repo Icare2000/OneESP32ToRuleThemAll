@@ -279,6 +279,15 @@ struct Property : public oe32trta::detail::Property {
 // 6. TTF VARIANTS
 // =======================================================================
 #if defined(TTF_07_C)
+    PROPERTY(RAUMSOLLTEMP_I, 0x0005, Type::et_dec_val);
+    PROPERTY(RAUMSOLLTEMP_II, 0x0006, Type::et_dec_val);
+    PROPERTY(RAUMSOLLTEMP_III, 0x0007, Type::et_dec_val);
+    PROPERTY(RAUMSOLLTEMP_NACHT, 0x0008, Type::et_dec_val);
+    PROPERTY(ANTILEGIONELLEN, 0x0101, Type::et_bool);
+    PROPERTY(WW_ECO, 0x027e, Type::et_bool);
+    PROPERTY(LZ_VERD_1_HEIZBETRIEB, 0x07fc);
+    PROPERTY(LZ_VERD_1_WW_BETRIEB, 0x0802);
+    PROPERTY(SOMMERBETRIEB, 0xfdb4, Type::et_little_bool);
     PROPERTY(WW_KOMF_TEMP, 0x0013, Type::et_dec_val);
     PROPERTY(WW_HYSTERESE, 0x0022, Type::et_dec_val);
     PROPERTY(PUFFERISTTEMP, 0x0078, Type::et_dec_val);
